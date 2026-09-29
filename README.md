@@ -5,6 +5,8 @@
 把散落在微信群、朋友圈里的跑腿需求集中起来，让同校同学可以：
 **发布任务 → 同学接单 → 完成跑腿 → 双方评价 → 积累校园信用。**
 
+**在线访问：https://yichenacademic.github.io/campus-errand/**
+
 ## 运行
 
 ```bash
@@ -14,6 +16,11 @@ npm run build    # 产物在 dist/，可直接静态部署
 ```
 
 桌面端打开时，左侧有「演示路线」，可以一键跳到每个关键步骤；手机端打开直接是 H5 页面。
+
+## 部署
+
+- 托管在 GitHub Pages，由 `.github/workflows/deploy.yml` 自动构建发布：**推送到 `main` 分支即更新线上版本，访问地址保持不变**。
+- 使用 hash 路由（如 `/#/task/t01`），刷新和直接打开二级页面都不会 404；`public/404.html` 会把 `/campus-errand/task/t01` 这类路径自动转到对应页面。
 
 ## 页面结构
 
