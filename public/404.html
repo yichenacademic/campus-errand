@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>顺路 · 校园跑腿互助</title>
+    <script>
+      // 直接访问 /campus-errand/task/t01 这类路径时，转成应用使用的 hash 路由
+      (function () {
+        var base = '/campus-errand/';
+        var path = location.pathname;
+        var rest = path.indexOf(base) === 0 ? path.slice(base.length).replace(/^\/+|\/+$/g, '') : '';
+        location.replace(base + (rest ? '#/' + rest : ''));
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
