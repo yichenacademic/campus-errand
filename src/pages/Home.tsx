@@ -56,7 +56,8 @@ export function Home() {
     const kw = keyword.trim().toLowerCase();
     const filtered = openTasks.filter((t) => {
       if (category !== 'all' && t.type !== category) return false;
-      if (!matchScene(t, scene, spot, now)) return false;
+      // 场景筛选是「去帮别人」的视角，不包含自己发布的任务，与场景计数保持一致
+      if (scene !== 'all' && (t.publisherId === me.id || !matchScene(t, scene, spot, now))) return false;
       if (!kw) return true;
       return [t.title, t.from, t.to, t.description].some((s) => s.toLowerCase().includes(kw));
     });
@@ -66,7 +67,7 @@ export function Home() {
     if (sort === 'reward') sorted.sort((a, b) => b.reward - a.reward || a.deadline - b.deadline);
     if (sort === 'distance') sorted.sort((a, b) => distanceMeters(spot, a.from) - distanceMeters(spot, b.from) || a.deadline - b.deadline);
     return sorted;
-  }, [openTasks, category, keyword, sort, scene, spot, now]);
+  }, [openTasks, category, keyword, sort, scene, spot, now, me.id]);
 
   const othersOpen = openTasks.filter((t) => t.publisherId !== me.id);
   const totalReward = othersOpen.reduce((s, t) => s + t.reward, 0);

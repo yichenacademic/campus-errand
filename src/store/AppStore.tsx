@@ -52,10 +52,25 @@ function migrate(raw: AppState): AppState | null {
   };
 }
 
+/**
+ * 补上旧数据里没有的预置「我的任务」（如后续版本新增的 m7、m8），保证演示路线里的链接都能打开。
+ * 预置任务不会被任何操作删除，所以这一步是幂等的。
+ */
+function ensureSeedTasks(state: AppState): AppState {
+  const existing = new Set(state.tasks.map((t) => t.id));
+  const fresh = createSeedState();
+  const missing = fresh.tasks.filter((t) => !existing.has(t.id) && (t.publisherId === fresh.meId || t.runnerId === fresh.meId));
+  if (missing.length === 0) return state;
+  const messages = { ...state.messages };
+  for (const t of missing) if (fresh.messages[t.id] && !messages[t.id]) messages[t.id] = fresh.messages[t.id];
+  return { ...state, tasks: [...missing, ...state.tasks], messages };
+}
+
 function parse(raw: string | null): AppState | null {
   if (!raw) return null;
   try {
-    return migrate(JSON.parse(raw) as AppState);
+    const state = migrate(JSON.parse(raw) as AppState);
+    return state && ensureSeedTasks(state);
   } catch {
     return null;
   }
