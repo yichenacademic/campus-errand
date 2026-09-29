@@ -1,7 +1,7 @@
 import type { AppState, CreditLog, PastReview, Rating, Task, TaskType, TimelineEvent, User } from '../types';
 import { DAY, HOUR, MINUTE, roundUpTo10 } from '../utils/time';
 
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 export const ME_ID = 'u_me';
 
 const u = (
@@ -99,7 +99,7 @@ const PLAZA: TaskSeed[] = [
     privateNote: '室友电话 138****2046，在 7 号楼门口等', tags: ['急', '小件'],
   },
   {
-    id: 't06', type: 'takeout', title: '帮取外卖送到 5 楼', publisher: 'u_zheng',
+    id: 't06', type: 'meal', title: '帮取外卖送到 5 楼', publisher: 'u_zheng',
     from: '东门', to: '研究生宿舍 5 号楼', reward: 3, eta: 8, ago: 5, window: 35,
     description: '外卖已经到东门外卖柜，一份粥，送到 5 楼楼梯口就好。',
     privateNote: '外卖柜 12 号格，取餐码 3391', tags: ['需上楼'],
@@ -129,7 +129,7 @@ const PLAZA: TaskSeed[] = [
     privateNote: '取件报「法学院辩论队」', tags: ['易折损'],
   },
   {
-    id: 't11', type: 'takeout', title: '帮取奶茶送到实验楼', publisher: 'u_yang',
+    id: 't11', type: 'meal', title: '帮取奶茶送到实验楼', publisher: 'u_yang',
     from: '西门', to: '实验楼', reward: 4, eta: 18, ago: 6, window: 40,
     description: '两杯奶茶在西门外卖架上，在做细胞培养走不开，辛苦啦～',
     privateNote: '实验楼 5 楼 512，敲门就好',
@@ -189,18 +189,22 @@ function myTasks(now: number): Task[] {
   const m4Created = now - 22 * MINUTE;
   const m5Created = now - DAY - 3 * HOUR;
   const m6Created = now - DAY - 5 * HOUR;
+  const m7Created = now - 16 * MINUTE;
+  const m8Created = now - 2 * DAY;
 
   return [
     {
       ...base,
-      id: 'm1', type: 'express', title: '帮取顺丰快递', publisherId: ME_ID, runnerId: 'u_liu', status: 'accepted',
+      id: 'm1', type: 'express', title: '帮取顺丰快递', publisherId: ME_ID, runnerId: 'u_liu', status: 'picked',
       from: '菜鸟驿站', to: '研究生宿舍 3 号楼', reward: 6, etaMinutes: 12,
       description: '一个文件袋，很轻。放 3 号楼门口快递架就好。',
       privateNote: '取件码 3-1-2208，手机尾号 4417', tags: ['小件'],
       createdAt: m1Created, deadline: roundUpTo10(m1Created + 60 * MINUTE),
       timeline: [
         ev('published', m1Created, '陈同学发布了任务'),
-        ev('accepted', m1Created + 7 * MINUTE, '刘同学接下了任务，正在前往菜鸟驿站'),
+        ev('accepted', m1Created + 7 * MINUTE, '刘同学接下了任务'),
+        ev('started', m1Created + 9 * MINUTE, '刘同学开始任务，正在前往菜鸟驿站'),
+        ev('picked', m1Created + 18 * MINUTE, '刘同学已取到物品，正在送来'),
       ],
     },
     {
@@ -213,7 +217,9 @@ function myTasks(now: number): Task[] {
       timeline: [
         ev('published', m2Created, '陈同学发布了任务'),
         ev('accepted', m2Created + 9 * MINUTE, '马同学接下了任务'),
-        ev('delivered', now - 6 * MINUTE, '马同学已送达，等待你确认完成'),
+        ev('started', m2Created + 11 * MINUTE, '马同学开始任务'),
+        ev('picked', m2Created + 24 * MINUTE, '马同学已取到物品'),
+        ev('delivered', now - 6 * MINUTE, '马同学已送达，请确认收到'),
       ],
     },
     {
@@ -240,7 +246,7 @@ function myTasks(now: number): Task[] {
     },
     {
       ...base,
-      id: 'm5', type: 'takeout', title: '帮取外卖送到宿舍', publisherId: ME_ID, runnerId: 'u_he', status: 'completed',
+      id: 'm5', type: 'meal', title: '帮取外卖送到宿舍', publisherId: ME_ID, runnerId: 'u_he', status: 'completed',
       from: '东门', to: '研究生宿舍 3 号楼', reward: 3, etaMinutes: 10,
       description: '东门外卖柜，一份砂锅粥。',
       privateNote: '外卖柜 7 号格',
@@ -248,8 +254,10 @@ function myTasks(now: number): Task[] {
       timeline: [
         ev('published', m5Created, '陈同学发布了任务'),
         ev('accepted', m5Created + 3 * MINUTE, '何同学接下了任务'),
+        ev('started', m5Created + 4 * MINUTE, '何同学开始任务'),
+        ev('picked', m5Created + 9 * MINUTE, '何同学已取到物品'),
         ev('delivered', m5Created + 15 * MINUTE, '何同学已送达'),
-        ev('completed', m5Created + 18 * MINUTE, '你确认完成，报酬 ¥3 已结算'),
+        ev('completed', m5Created + 18 * MINUTE, '你确认收到，任务已完成，报酬 ¥3 已结算'),
         ev('rated', m5Created + 19 * MINUTE, '你评价了何同学'),
       ],
       ratingByPublisher: rating(5, ['准时送达', '态度友好'], '超快，粥还是热的！', m5Created + 19 * MINUTE),
@@ -265,10 +273,37 @@ function myTasks(now: number): Task[] {
       timeline: [
         ev('published', m6Created, '吴同学发布了任务'),
         ev('accepted', m6Created + 12 * MINUTE, '你接下了任务'),
+        ev('started', m6Created + 14 * MINUTE, '你开始了任务'),
+        ev('picked', m6Created + 26 * MINUTE, '你已取到物品'),
         ev('delivered', m6Created + 38 * MINUTE, '你已送达'),
-        ev('completed', m6Created + 45 * MINUTE, '吴同学确认完成，报酬 ¥8 已结算'),
+        ev('completed', m6Created + 45 * MINUTE, '任务已完成，报酬 ¥8 已结算'),
       ],
       ratingByPublisher: rating(5, ['准时送达', '物品完好'], '书一本没少，还帮我放进了收纳箱，感谢！', m6Created + 46 * MINUTE),
+    },
+    {
+      ...base,
+      id: 'm7', type: 'express', title: '帮取一个圆通快递', publisherId: 'u_yang', runnerId: ME_ID, status: 'started',
+      from: '菜鸟驿站', to: '实验楼', reward: 5, etaMinutes: 15,
+      description: '一个小纸箱，是实验用的手套，不重。送到实验楼一楼大厅就行。',
+      privateNote: '取件码 6-3-0917；实验楼一楼前台',
+      createdAt: m7Created, deadline: roundUpTo10(m7Created + 60 * MINUTE),
+      timeline: [
+        ev('published', m7Created, '杨同学发布了任务'),
+        ev('accepted', m7Created + 5 * MINUTE, '你接下了任务'),
+        ev('started', m7Created + 8 * MINUTE, '你开始了任务，正在前往菜鸟驿站'),
+      ],
+    },
+    {
+      ...base,
+      id: 'm8', type: 'print', title: '帮打印一份简历', publisherId: ME_ID, runnerId: null, status: 'cancelled',
+      from: '文印中心', to: '研究生宿舍 3 号楼', reward: 4, etaMinutes: 17,
+      description: '彩色单面 2 页，用厚一点的纸。',
+      privateNote: '',
+      createdAt: m8Created, deadline: roundUpTo10(m8Created + 60 * MINUTE),
+      timeline: [
+        ev('published', m8Created, '陈同学发布了任务'),
+        ev('cancelled', m8Created + 20 * MINUTE, '你取消了任务'),
+      ],
     },
   ];
 }

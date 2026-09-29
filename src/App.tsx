@@ -19,10 +19,10 @@ export function Logo({ size = 48 }: { size?: number }) {
 }
 
 const GUIDE = [
-  { to: '/', title: '在广场接一单', desc: '选一个任务 → 顺路接下这单' },
-  { to: '/task/m4', title: '跑腿并标记送达', desc: '我接的「送 U 盘」→ 我已送达' },
-  { to: '/publish', title: '发布一个求助', desc: '填写路线、时间和奖励' },
-  { to: '/task/m2', title: '确认完成并评价', desc: '我发布的「打印论文」→ 确认完成' },
+  { to: '/', title: '在广场接一单', desc: '选一个任务 → 接下这个任务' },
+  { to: '/task/m4', title: '跑腿推进状态', desc: '开始任务 → 已取到 → 已送达 → 完成' },
+  { to: '/publish', title: '分三步发布求助', desc: '选择类型 → 填写信息 → 确认发布' },
+  { to: '/task/m2', title: '确认收到并评价', desc: '我发布的「打印论文」→ 确认收到' },
   { to: '/me', title: '查看校园信用', desc: '信用分、评价与信用记录' },
 ];
 

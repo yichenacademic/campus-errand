@@ -1,12 +1,12 @@
-export type TaskType = 'express' | 'meal' | 'takeout' | 'print' | 'deliver' | 'errand';
+export type TaskType = 'express' | 'meal' | 'deliver' | 'print' | 'errand' | 'other';
 
 /**
  * 任务状态机：
- * open(待接单) → accepted(进行中) → delivered(待确认) → completed(已完成)
+ * open(待接单) → accepted(已接单) → started(进行中) → picked(已取到) → delivered(已送达) → completed(已完成)
  * open → cancelled(已取消)
  * 过期（open 且超过截止时间）是派生状态，不单独存储。
  */
-export type TaskStatus = 'open' | 'accepted' | 'delivered' | 'completed' | 'cancelled';
+export type TaskStatus = 'open' | 'accepted' | 'started' | 'picked' | 'delivered' | 'completed' | 'cancelled';
 
 export interface User {
   id: string;
@@ -35,7 +35,7 @@ export interface Rating {
   at: number;
 }
 
-export type TimelineKind = 'published' | 'accepted' | 'delivered' | 'completed' | 'cancelled' | 'rated';
+export type TimelineKind = 'published' | 'accepted' | 'started' | 'picked' | 'delivered' | 'completed' | 'cancelled' | 'rated';
 
 export interface TimelineEvent {
   kind: TimelineKind;

@@ -6,6 +6,7 @@ import { RatingSheet } from '../components/RatingSheet';
 import {
   Avatar,
   ConfirmDialog,
+  CreditLine,
   creditTone,
   Empty,
   Stars,
@@ -16,27 +17,48 @@ import {
 } from '../components/ui';
 import { LOCATIONS } from '../data/locations';
 import { useStore } from '../store/AppStore';
-import { displayStatus, roleOf, STATUS_META, type DisplayStatus, type Role } from '../store/logic';
+import { displayStatus, roleOf, RUNNER_NEXT, STATUS_META, type DisplayStatus, type Role } from '../store/logic';
 import type { Rating, Task, User } from '../types';
 import { clock, dayClock, MINUTE, remaining, timeAgo } from '../utils/time';
 
-const STEPS = ['发布', '接单', '送达', '完成'];
-const STEP_INDEX: Record<DisplayStatus, number> = { open: 1, accepted: 2, delivered: 3, completed: 4, cancelled: -1, expired: -1 };
+const STEPS = ['发布', '接单', '出发', '取到', '送达', '完成'];
+const STEP_INDEX: Record<DisplayStatus, number> = {
+  open: 1,
+  accepted: 2,
+  started: 3,
+  picked: 4,
+  delivered: 5,
+  completed: 6,
+  cancelled: -1,
+  expired: -1,
+};
 
 function heroCopy(task: Task, role: Role, status: DisplayStatus, runner: User | null, now: number): { title: string; desc: string } {
   const left = remaining(task.deadline, now);
+  const who = runner?.name ?? '跑腿同学';
+  const due = `约定 ${dayClock(task.deadline, now)} 前送达`;
+  const mine = role === 'runner';
   switch (status) {
     case 'open':
       return role === 'publisher'
         ? { title: '等待同学接单', desc: `${timeAgo(task.createdAt, now)}发布，${left}` }
         : { title: '等待接单中', desc: `顺路的话帮一把吧，${left}` };
     case 'accepted':
-      if (role === 'runner') return { title: '你正在跑腿', desc: `请在 ${dayClock(task.deadline, now)} 前送达，${left}` };
-      return { title: `${runner?.name ?? '跑腿同学'}正在路上`, desc: `约定 ${dayClock(task.deadline, now)} 前送达` };
+      return mine
+        ? { title: '接单成功', desc: `出发时点击「开始任务」，${due}` }
+        : { title: `${who}已接单`, desc: `即将出发，${due}` };
+    case 'started':
+      return mine
+        ? { title: '任务进行中', desc: `正在前往「${task.from}」，取到后记得更新状态` }
+        : { title: `${who}正在前往取件`, desc: `前往「${task.from}」，${due}` };
+    case 'picked':
+      return mine
+        ? { title: '已取到物品', desc: `送到「${task.to}」后点击「已送达」，${left}` }
+        : { title: `${who}已取到，正在送来`, desc: `送往「${task.to}」，${due}` };
     case 'delivered':
-      return role === 'publisher'
-        ? { title: '对方已送达，请确认', desc: '确认物品无误后点击「确认完成」，报酬将结算给对方' }
-        : { title: '已送达，等待确认', desc: '发布者确认后任务完成，你将获得报酬和信用分' };
+      return mine
+        ? { title: '已送达', desc: '确认对方收到后，点击「完成任务」结算报酬' }
+        : { title: '已送达，请确认收到', desc: '确认物品无误后点击「确认收到」，任务即完成' };
     case 'completed':
       return { title: '任务已完成', desc: '感谢每一次顺路的帮忙' };
     case 'cancelled':
@@ -53,6 +75,7 @@ export function TaskDetail() {
   const [confirm, setConfirm] = useState<ConfirmOptions | null>(null);
   const [rating, setRating] = useState(false);
 
+  // 与首页、我的任务读取同一份 state.tasks，任何页面的操作都会同步到这里
   const task = state.tasks.find((t) => t.id === id);
 
   if (!task) {
@@ -90,7 +113,7 @@ export function TaskDetail() {
 
   const accept = () =>
     ask({
-      title: '确认接下这单？',
+      title: '确认接单吗？',
       body: (
         <>
           请在 <b>{dayClock(task.deadline, now)}</b> 前把物品从「{task.from}」送到「{task.to}」。
@@ -102,23 +125,36 @@ export function TaskDetail() {
       onConfirm: () => run({ type: 'accept', taskId: task.id }),
     });
 
-  const deliver = () =>
-    ask({
-      title: '确认已经送达？',
-      body: '请确保物品已交到对方手中，或放在约定的位置。',
-      confirmText: '已送达',
-      onConfirm: () => run({ type: 'deliver', taskId: task.id }),
-    });
+  const runnerNext = () => {
+    const next = RUNNER_NEXT[task.status];
+    if (!next) return;
+    if (next.action === 'complete') {
+      ask({
+        title: '确认完成任务？',
+        body: (
+          <>
+            请确认物品已交到对方手中。完成后报酬 <b style={{ color: 'var(--reward)' }}>¥{task.reward}</b> 将结算给你。
+          </>
+        ),
+        confirmText: '完成任务',
+        onConfirm: () => {
+          if (run({ type: 'complete', taskId: task.id })) setRating(true);
+        },
+      });
+      return;
+    }
+    run({ type: next.action, taskId: task.id });
+  };
 
-  const complete = () =>
+  const confirmReceived = () =>
     ask({
-      title: '确认任务已完成？',
+      title: '确认已经收到？',
       body: (
         <>
-          确认后报酬 <b style={{ color: 'var(--reward)' }}>¥{task.reward}</b> 将结算给{runner?.name ?? '对方'}，此操作无法撤回。
+          确认后任务完成，报酬 <b style={{ color: 'var(--reward)' }}>¥{task.reward}</b> 将结算给{runner?.name ?? '对方'}，此操作无法撤回。
         </>
       ),
-      confirmText: '确认完成',
+      confirmText: '确认收到',
       onConfirm: () => {
         if (run({ type: 'confirm', taskId: task.id })) setRating(true);
       },
@@ -140,9 +176,10 @@ export function TaskDetail() {
     if (run({ type: 'rate', taskId: task.id, rating: r })) setRating(false);
   };
 
-  /* ---------- 底部操作栏 ---------- */
+  /* ---------- 底部操作栏：按「我的角色 × 任务状态」决定 ---------- */
   let footer: ReactNode = null;
   const bar = (children: ReactNode) => <div className="action-bar">{children}</div>;
+  const runnerAction = role === 'runner' ? RUNNER_NEXT[task.status] : undefined;
 
   if (role === 'visitor') {
     if (status === 'open') {
@@ -156,14 +193,14 @@ export function TaskDetail() {
             </strong>
           </div>
           <button className="btn btn-primary" style={{ minWidth: 160 }} onClick={accept}>
-            顺路接下这单
+            接下这个任务
           </button>
         </>,
       );
     } else {
       footer = bar(
         <button className="btn btn-secondary btn-block" disabled>
-          {status === 'expired' ? '任务已过期' : status === 'cancelled' ? '任务已取消' : '已被其他同学接走'}
+          {status === 'expired' ? '任务已过期' : status === 'cancelled' ? '任务已取消' : status === 'completed' ? '任务已完成' : '该任务已被其他同学接单'}
         </button>,
       );
     }
@@ -174,10 +211,10 @@ export function TaskDetail() {
           <button className="btn btn-ghost-danger" onClick={cancel}>
             取消任务
           </button>
-          <span className="hint">有同学接单时会第一时间通知你</span>
+          <span className="hint">自己发布的任务不能自己接，等等附近同学吧</span>
         </>,
       );
-    if (status === 'accepted')
+    if (status === 'accepted' || status === 'started' || status === 'picked')
       footer = bar(
         <button className="btn btn-secondary btn-block" onClick={contact}>
           <MessageCircle size={17} />
@@ -190,30 +227,23 @@ export function TaskDetail() {
           <button className="btn btn-secondary" onClick={contact}>
             联系对方
           </button>
-          <button className="btn btn-primary btn-block" onClick={complete}>
+          <button className="btn btn-primary btn-block" onClick={confirmReceived}>
             <Check size={17} strokeWidth={2.6} />
-            确认完成
+            确认收到
           </button>
         </>,
       );
-  } else if (role === 'runner') {
-    if (status === 'accepted')
-      footer = bar(
-        <>
-          <button className="btn btn-secondary" onClick={contact}>
-            联系发布者
-          </button>
-          <button className="btn btn-primary btn-block" onClick={deliver}>
-            我已送达
-          </button>
-        </>,
-      );
-    if (status === 'delivered')
-      footer = bar(
-        <button className="btn btn-secondary btn-block" disabled>
-          等待{publisher.name}确认完成
-        </button>,
-      );
+  } else if (runnerAction) {
+    footer = bar(
+      <>
+        <button className="btn btn-secondary" onClick={contact}>
+          联系发布者
+        </button>
+        <button className="btn btn-primary btn-block" onClick={runnerNext}>
+          {runnerAction.label}
+        </button>
+      </>,
+    );
   }
   if (needRate && rateTarget) {
     footer = bar(
@@ -230,10 +260,12 @@ export function TaskDetail() {
   let demo: { text: string; label: string; onClick: () => void } | null = null;
   if (role === 'publisher' && status === 'open')
     demo = { text: '模拟一位同学接下你的任务', label: '模拟同学接单', onClick: () => run({ type: 'simAccept', taskId: task.id }) };
-  if (role === 'publisher' && status === 'accepted')
-    demo = { text: '模拟跑腿同学把东西送到了', label: '模拟对方已送达', onClick: () => run({ type: 'simDeliver', taskId: task.id }) };
-  if (role === 'runner' && status === 'delivered')
-    demo = { text: '模拟发布者确认完成并给你评价', label: '模拟对方确认完成', onClick: () => run({ type: 'simConfirm', taskId: task.id }) };
+  if (role === 'publisher' && (status === 'accepted' || status === 'started' || status === 'picked')) {
+    const label = { accepted: '模拟对方：开始任务', started: '模拟对方：已取到', picked: '模拟对方：已送达' }[status];
+    demo = { text: '模拟跑腿同学更新一步进度', label, onClick: () => run({ type: 'simAdvance', taskId: task.id }) };
+  }
+  if (role === 'runner' && status === 'completed' && !task.ratingByPublisher)
+    demo = { text: '模拟发布者给你评价', label: '模拟对方评价我', onClick: () => run({ type: 'simRate', taskId: task.id }) };
 
   const tone = STATUS_META[status].tone;
 
@@ -275,31 +307,31 @@ export function TaskDetail() {
               <em>跑腿奖励</em>
             </div>
           </div>
+          <div className="dm-publisher">
+            <Avatar user={publisher} size={22} />
+            <CreditLine user={publisher} prefix="发布者 " />
+          </div>
 
           <div className="route-v">
             <div className="rv-item">
-              <span className="pin-label from">
-                起
-              </span>
+              <span className="pin-label from">取</span>
               <div>
+                <small>取件地点 · {areaOf(task.from)}</small>
                 <strong>{task.from}</strong>
-                <small>{areaOf(task.from)}</small>
               </div>
             </div>
             <div className="rv-item">
-              <span className="pin-label to">
-                终
-              </span>
+              <span className="pin-label to">送</span>
               <div>
+                <small>送达地点 · {areaOf(task.to)}</small>
                 <strong>{task.to}</strong>
-                <small>{areaOf(task.to)}</small>
               </div>
             </div>
           </div>
 
           <div className="info-grid">
             <div>
-              <small>希望送达</small>
+              <small>截止时间</small>
               <strong className="num">{dayClock(task.deadline, now)} 前</strong>
               {status === 'open' && <em className={soon ? 'soon' : ''}>{remaining(task.deadline, now)}</em>}
             </div>
@@ -317,8 +349,8 @@ export function TaskDetail() {
         </section>
 
         <section className="card section">
-          <div className="section-title">任务说明</div>
-          <p className={`desc${task.description ? '' : ' muted'}`}>{task.description || '发布者没有填写补充说明'}</p>
+          <div className="section-title">任务描述</div>
+          <p className={`desc${task.description ? '' : ' muted'}`}>{task.description || '发布者没有填写任务描述'}</p>
         </section>
 
         <section className="card section">
@@ -343,7 +375,7 @@ export function TaskDetail() {
           <div className="section-title">任务双方</div>
           <PersonRow user={publisher} label="发布者" isMe={publisher.id === me.id} />
           {runner ? (
-            <PersonRow user={runner} label="跑腿同学" isMe={runner.id === me.id} />
+            <PersonRow user={runner} label="接单者" isMe={runner.id === me.id} />
           ) : (
             status === 'open' && (
               <div className="person" style={{ color: 'var(--text-3)', fontSize: 13 }}>
@@ -388,7 +420,7 @@ export function TaskDetail() {
 
         <p className="safety">
           <ShieldCheck size={14} />
-          交接时请当面确认物品；报酬在发布者确认完成后结算。演示环境不会产生真实交易。
+          交接时请当面确认物品；报酬在任务完成后结算。演示环境不会产生真实交易。
         </p>
       </div>
 

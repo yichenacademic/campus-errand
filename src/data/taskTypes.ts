@@ -1,4 +1,4 @@
-import { HandHelping, KeyRound, Package, Printer, ShoppingBag, UtensilsCrossed, type LucideIcon } from 'lucide-react';
+import { Ellipsis, HandHelping, KeyRound, Package, Printer, UtensilsCrossed, type LucideIcon } from 'lucide-react';
 import type { TaskType } from '../types';
 
 export interface TaskTypeMeta {
@@ -9,20 +9,23 @@ export interface TaskTypeMeta {
   color: string;
   /** 浅底色 */
   tint: string;
+  /** 发布第一步里的一句话举例 */
+  example: string;
   titlePlaceholder: string;
   descPlaceholder: string;
   privatePlaceholder: string;
-  /** 同类任务的常见报酬区间，用于发布页提示 */
+  /** 同类任务的常见奖励区间，用于推荐奖励 */
   rewardRange: [number, number];
 }
 
 export const TASK_TYPES: TaskTypeMeta[] = [
   {
     key: 'express',
-    label: '代取快递',
+    label: '取快递',
     icon: Package,
     color: '#C2410C',
     tint: '#FFF1E7',
+    example: '菜鸟驿站、京东快递点',
     titlePlaceholder: '例如：帮取菜鸟驿站快递',
     descPlaceholder: '快递大小、重量、放在哪里比较方便……',
     privatePlaceholder: '取件码、手机尾号等',
@@ -30,58 +33,63 @@ export const TASK_TYPES: TaskTypeMeta[] = [
   },
   {
     key: 'meal',
-    label: '顺路带饭',
+    label: '带饭 / 代买',
     icon: UtensilsCrossed,
     color: '#B45309',
     tint: '#FEF5DC',
+    example: '食堂带饭、取外卖、买奶茶',
     titlePlaceholder: '例如：二食堂顺路带份饭',
     descPlaceholder: '哪个窗口、吃什么、忌口，饭钱怎么结……',
-    privatePlaceholder: '宿舍门牌号、联系方式等',
-    rewardRange: [3, 6],
-  },
-  {
-    key: 'takeout',
-    label: '代取外卖',
-    icon: ShoppingBag,
-    color: '#BE185D',
-    tint: '#FDECF3',
-    titlePlaceholder: '例如：帮取外卖送到楼上',
-    descPlaceholder: '外卖放在哪里、送到哪一层……',
-    privatePlaceholder: '外卖柜格口号、取餐码等',
-    rewardRange: [2, 5],
-  },
-  {
-    key: 'print',
-    label: '代打印',
-    icon: Printer,
-    color: '#1D4ED8',
-    tint: '#EAF1FF',
-    titlePlaceholder: '例如：帮忙打印课程讲义',
-    descPlaceholder: '页数、黑白/彩色、单双面、是否装订……',
-    privatePlaceholder: '文件网盘链接、提取码等',
-    rewardRange: [4, 10],
+    privatePlaceholder: '外卖柜格口、宿舍门牌号等',
+    rewardRange: [2, 6],
   },
   {
     key: 'deliver',
-    label: '代送物品',
+    label: '送东西',
     icon: KeyRound,
     color: '#0F766E',
     tint: '#E3F6F2',
+    example: '钥匙、U 盘、资料、书',
     titlePlaceholder: '例如：帮送钥匙到宿舍楼下',
     descPlaceholder: '送什么、多大、交给谁……',
     privatePlaceholder: '收件人联系方式、门牌号等',
     rewardRange: [4, 10],
   },
   {
+    key: 'print',
+    label: '打印资料',
+    icon: Printer,
+    color: '#1D4ED8',
+    tint: '#EAF1FF',
+    example: '讲义、论文、海报',
+    titlePlaceholder: '例如：帮忙打印课程讲义',
+    descPlaceholder: '页数、黑白/彩色、单双面、是否装订……',
+    privatePlaceholder: '文件取件码、网盘提取码等',
+    rewardRange: [4, 10],
+  },
+  {
     key: 'errand',
-    label: '临时代办',
+    label: '校园互助',
     icon: HandHelping,
     color: '#6D28D9',
     tint: '#F1ECFF',
+    example: '还书、交材料、排队领取',
     titlePlaceholder: '例如：帮去图书馆还两本书',
     descPlaceholder: '具体要办什么事、需要注意什么……',
-    privatePlaceholder: '需要的证件信息、联系方式等',
+    privatePlaceholder: '需要的学号、联系方式等',
     rewardRange: [4, 12],
+  },
+  {
+    key: 'other',
+    label: '其他',
+    icon: Ellipsis,
+    color: '#4B5563',
+    tint: '#EEF0F2',
+    example: '其他顺路能帮的忙',
+    titlePlaceholder: '一句话说清楚需要帮什么',
+    descPlaceholder: '把需求描述清楚，更容易被接单……',
+    privatePlaceholder: '联系方式、门牌号等',
+    rewardRange: [3, 10],
   },
 ];
 

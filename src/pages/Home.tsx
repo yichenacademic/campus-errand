@@ -20,7 +20,7 @@ const SORTS: { key: Sort; label: string }[] = [
 ];
 
 export function Home() {
-  const { state, me, now, reset } = useStore();
+  const { state, me, now, refresh } = useStore();
   const navigate = useNavigate();
   const [category, setCategory] = useSessionState<TaskType | 'all'>('home.category', 'all');
   const [sort, setSort] = useSessionState<Sort>('home.sort', 'latest');
@@ -166,10 +166,10 @@ export function Home() {
           <Empty
             icon={<SearchX size={28} />}
             title="广场上的任务都被接完啦"
-            desc="演示任务会随时间过期，可以重置演示数据，或者自己发布一个"
+            desc="演示任务会随时间过期，可以刷新一批新任务，你自己的任务和记录不受影响"
             action={
-              <button className="btn btn-secondary btn-sm" onClick={reset}>
-                重置演示数据
+              <button className="btn btn-secondary btn-sm" onClick={refresh}>
+                刷新广场任务
               </button>
             }
           />
