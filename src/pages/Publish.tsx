@@ -10,6 +10,7 @@ import { useStore } from '../store/AppStore';
 import type { PublishDraft } from '../store/logic';
 import type { Task, TaskType } from '../types';
 import { clock, dayClock, MINUTE, roundUpTo10 } from '../utils/time';
+import { scrollWithinPage } from '../utils/scroll';
 
 const DEADLINE_OPTIONS = [
   { minutes: 30, label: '30 分钟内' },
@@ -137,7 +138,7 @@ export function Publish() {
     const first = order.find((f) => e[f]);
     if (first) {
       toast('还有信息没填好，请检查标红的地方', 'error');
-      fieldRefs.current[first]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      scrollWithinPage(fieldRefs.current[first] ?? null, 'center');
       return;
     }
     setStep(3);

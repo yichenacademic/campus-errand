@@ -186,7 +186,7 @@ export function Profile() {
             <Sparkles size={18} style={{ color: 'var(--reward)' }} />
             <span className="mi-text">
               有 {pending} 个任务等你处理
-              <small>确认完成、评价或标记送达</small>
+              <small>确认收到、更新进度或完成评价</small>
             </span>
             <ChevronRight size={18} />
           </button>
@@ -194,7 +194,7 @@ export function Profile() {
 
         <section className="card section">
           <div className="section-title">
-            校园信用怎么来
+            信用分怎么算
             <small>满分 100</small>
           </div>
           <div className="rule-group-title plus">加分来源</div>

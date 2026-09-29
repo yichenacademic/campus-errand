@@ -58,7 +58,7 @@ export function RatingSheet({ target, targetRole, taskTitle, onClose, onSubmit }
 
       <textarea
         className="textarea"
-        placeholder={score >= 4 ? '说说这次互助的感受吧（选填）' : '遇到了什么问题？你的反馈会帮助社区变得更好（选填）'}
+        placeholder={score >= 4 ? '说说这次互助的感受吧（选填）' : '说说遇到了什么问题，平台会认真核实（选填）'}
         maxLength={100}
         value={comment}
         onChange={(e) => setComment(e.target.value)}

@@ -59,14 +59,14 @@ function Aside() {
           ))}
         </ol>
       </div>
-      <p className="aside-foot">当前身份：陈同学（Demo 用户）· 数据保存在本地浏览器，可在「我的」中重置</p>
+      <p className="aside-foot">当前为演示账号「陈同学」· 数据只保存在你的浏览器里，可在「我的」页重置</p>
     </aside>
   );
 }
 
 export function App() {
   return (
-    <HashRouter>
+    <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AppStoreProvider>
         <div className="shell">
           <Aside />

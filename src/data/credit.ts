@@ -37,7 +37,7 @@ export const CREDIT_LOSSES: CreditRule[] = [
   { kind: 'abandon', title: '接单后无故取消', points: '-5/次', desc: '接单后放弃任务，会影响发布者的安排' },
   { kind: 'late', title: '多次超时', points: '-2/次', desc: '超时送达每次 -2，30 天内满 3 次额外 -5' },
   { kind: 'complaint', title: '被投诉', points: '-10/次', desc: '经平台核实后扣分' },
-  { kind: 'fake', title: '发布虚假任务', points: '-15/次', desc: '并暂停发布权限 7 天' },
+  { kind: 'fake', title: '发布虚假任务', points: '-15/次', desc: '同时暂停发布任务 7 天' },
 ];
 
 /** 互评快捷标签（双方通用） */

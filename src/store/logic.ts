@@ -180,7 +180,7 @@ export function reduce(state: AppState, action: Action, now = Date.now()): Resul
   /** 跑腿同学推进一步的通用校验 */
   const runnerStep = (from: TaskStatus, to: TaskStatus, text: string, message: string): Result => {
     if (role !== 'runner') return { ok: false, error: '只有接单的同学可以更新任务进度' };
-    if (task.status !== from) return { ok: false, error: `任务当前是「${STATUS_META[task.status].label}」，无法执行这一步` };
+    if (task.status !== from) return { ok: false, error: `任务当前为「${STATUS_META[task.status].label}」，请按顺序更新进度` };
     return { ok: true, state: transition(state, task.id, to, { kind: to as TimelineEvent['kind'], at: now, text }), message };
   };
 

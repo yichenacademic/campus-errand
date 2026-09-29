@@ -47,7 +47,7 @@ function heroCopy(task: Task, role: Role, status: DisplayStatus, runner: User | 
         : { title: '等待接单中', desc: `顺路的话帮一把吧，${left}` };
     case 'accepted':
       return mine
-        ? { title: '接单成功', desc: `出发时点击「开始任务」，${due}` }
+        ? { title: '接单成功', desc: `出发时点「开始任务」，${due}` }
         : { title: `${who}已接单`, desc: `即将出发，${due}` };
     case 'started':
       return mine
@@ -236,7 +236,7 @@ export function TaskDetail() {
           <button className="btn btn-ghost-danger" onClick={cancel}>
             取消任务
           </button>
-          <span className="hint">自己发布的任务不能自己接，等等附近同学吧</span>
+          <span className="hint">有同学接单后会第一时间通知你</span>
         </>,
       );
     if (status === 'accepted' || status === 'started' || status === 'picked')

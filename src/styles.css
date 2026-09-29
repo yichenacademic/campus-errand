@@ -134,10 +134,7 @@ p {
 
 @media (min-width: 960px) {
   body {
-    background:
-      radial-gradient(1200px 600px at 10% 0%, #dff1e7 0%, transparent 60%),
-      radial-gradient(900px 500px at 100% 100%, #f7ead9 0%, transparent 55%),
-      var(--bg-deep);
+    background: #e7ebe4;
   }
   .frame {
     width: 400px;
@@ -257,13 +254,6 @@ p {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  animation: page-in 0.28s var(--ease);
-}
-@keyframes page-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
 }
 
 .page-body {
@@ -638,8 +628,9 @@ p {
 /* 路线 */
 .route {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 2px 6px;
   font-size: 14px;
   color: var(--text);
   min-width: 0;
@@ -651,8 +642,6 @@ p {
   min-width: 0;
 }
 .route .place span {
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .route .pin {
@@ -806,8 +795,7 @@ p {
 }
 @keyframes toast-in {
   from {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.96);
+    transform: translateY(-6px);
   }
 }
 
@@ -844,8 +832,7 @@ p {
 }
 @keyframes pop-in {
   from {
-    opacity: 0;
-    transform: scale(0.94);
+    transform: scale(0.96);
   }
 }
 .dialog h3 {
@@ -898,6 +885,7 @@ p {
    ========================================================= */
 .task-list {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 .task-card {
@@ -920,6 +908,7 @@ p {
 }
 .tc-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
   margin-bottom: 10px;
@@ -1008,6 +997,11 @@ p {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  overflow: hidden;
+}
+.tc-foot .next-step,
+.tc-foot .mine-flag {
+  flex: none;
 }
 .tc-foot .mine-flag {
   font-size: 12px;
@@ -1069,20 +1063,11 @@ p {
   margin-top: 16px;
   padding: 16px;
   border-radius: var(--r-lg);
-  background: linear-gradient(135deg, #16a06f 0%, #0e8a64 55%, #0b7456 100%);
+  background: var(--primary-strong);
   color: #fff;
   overflow: hidden;
 }
-.hero::after {
-  content: '';
-  position: absolute;
-  right: -40px;
-  top: -40px;
-  width: 160px;
-  height: 160px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 70%);
-}
+
 .hero-path {
   position: absolute;
   right: 12px;
@@ -1095,22 +1080,6 @@ p {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-.live-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #8ff0c4;
-  box-shadow: 0 0 0 0 rgba(143, 240, 196, 0.7);
-  animation: pulse 2s infinite;
-}
-@keyframes pulse {
-  70% {
-    box-shadow: 0 0 0 6px rgba(143, 240, 196, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(143, 240, 196, 0);
-  }
 }
 .hero h2 {
   font-size: 18px;
@@ -1315,7 +1284,7 @@ p {
 .textarea:focus,
 .select:focus {
   border-color: var(--primary);
-  background: var(--surface);
+  background-color: var(--surface);
 }
 .input::placeholder,
 .textarea::placeholder {
@@ -1338,7 +1307,7 @@ p {
 .has-error .select,
 .input.has-error {
   border-color: var(--red);
-  background: #fffafa;
+  background-color: #fffafa;
 }
 .field-error {
   display: flex;
@@ -1548,19 +1517,19 @@ p {
   margin-top: 4px;
 }
 .status-hero.tone-green-hero {
-  background: linear-gradient(180deg, var(--primary-tint), var(--bg));
+  background: var(--primary-tint);
 }
 .status-hero.tone-blue-hero {
-  background: linear-gradient(180deg, var(--blue-tint), var(--bg));
+  background: var(--blue-tint);
 }
 .status-hero.tone-orange-hero {
-  background: linear-gradient(180deg, var(--orange-tint), var(--bg));
+  background: var(--orange-tint);
 }
 .status-hero.tone-gray-hero {
-  background: linear-gradient(180deg, var(--surface-3), var(--bg));
+  background: var(--surface-3);
 }
 .status-hero.tone-red-hero {
-  background: linear-gradient(180deg, var(--red-tint), var(--bg));
+  background: var(--red-tint);
 }
 .steps {
   display: flex;
@@ -2077,21 +2046,12 @@ p {
   margin-top: 16px;
   padding: 18px;
   border-radius: var(--r-lg);
-  background: linear-gradient(145deg, #13332a 0%, #0f4a37 60%, #12664a 100%);
+  background: #134836;
   color: #fff;
   position: relative;
   overflow: hidden;
 }
-.credit-card::after {
-  content: '';
-  position: absolute;
-  right: -60px;
-  bottom: -80px;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(143, 240, 196, 0.16), transparent 70%);
-}
+
 .cc-top {
   display: flex;
   align-items: center;
@@ -3117,4 +3077,18 @@ p {
   font-size: 13px;
   margin-bottom: 2px;
   color: #5c3806;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 详情页：状态色带与首张卡片之间留出间距 */
+.status-hero + .page-pad {
+  padding-top: 12px;
 }

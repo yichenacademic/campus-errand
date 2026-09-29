@@ -11,6 +11,7 @@ import { displayStatus } from '../store/logic';
 import type { Task, TaskType } from '../types';
 import { greeting, MINUTE } from '../utils/time';
 import { useSessionState } from '../utils/useSessionState';
+import { scrollWithinPage } from '../utils/scroll';
 
 type Sort = 'latest' | 'reward' | 'deadline' | 'distance';
 type Scene = 'all' | 'along' | 'urgent' | 'afterClass';
@@ -91,7 +92,7 @@ export function Home() {
     setScene('along');
     setCategory('all');
     setKeyword('');
-    listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollWithinPage(listRef.current, 'start');
   };
 
   return (
@@ -115,10 +116,6 @@ export function Home() {
         </div>
 
         <section className="hero">
-          <svg className="hero-path" width="140" height="70" viewBox="0 0 140 70" fill="none" aria-hidden>
-            <path d="M4 60c30 0 34-40 66-40s36 30 66 30" stroke="#fff" strokeWidth="3" strokeDasharray="2 8" strokeLinecap="round" />
-            <circle cx="136" cy="50" r="5" fill="#fff" />
-          </svg>
           <button className="hero-kicker loc-switch" onClick={() => setPicking(true)}>
             <MapPin size={13} />
             你目前在{whereText}附近 · {spot}

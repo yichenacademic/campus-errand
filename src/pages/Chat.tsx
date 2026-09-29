@@ -7,6 +7,7 @@ import { useStore } from '../store/AppStore';
 import { displayStatus, newMessageId, roleOf } from '../store/logic';
 import type { Task, TaskType, User } from '../types';
 import { dayClock, MINUTE } from '../utils/time';
+import { scrollWithinPage } from '../utils/scroll';
 
 const NOUN: Record<TaskType, string> = {
   express: '快递',
@@ -35,20 +36,22 @@ function autoReply(text: string, counterpartIsRunner: boolean) {
   if (has('取到')) return '太好了，谢谢！路上注意安全';
   if (has('分钟')) return '好的，不着急～';
   if (has('谢谢')) return '不客气，也谢谢你～';
-  return '好的👌';
+  return '好的，收到';
 }
 
 type Item = { kind: 'msg'; id: string; from: string; text: string; at: number } | { kind: 'system'; id: string; text: string; at: number };
 
 /** 系统消息由任务时间线派生：放弃过的任务只取最近一次接单之后的进度 */
-function systemItems(task: Task, runner: User | null): Item[] {
+function systemItems(task: Task, runner: User | null, meId: string): Item[] {
   const lastAbandon = task.timeline.map((e) => e.kind).lastIndexOf('abandoned');
   const events = task.timeline.slice(lastAbandon + 1);
+  // 我是跑腿者时用「你」，避免用第三人称称呼自己
+  const who = runner?.id === meId ? '你' : '跑腿者';
   const texts: Partial<Record<string, string>> = {
-    accepted: `${runner?.name ?? '跑腿同学'}接下了任务，你们可以开始沟通了`,
-    started: `跑腿者已出发，正在前往${task.from}`,
-    picked: `跑腿者已取到${NOUN[task.type]}`,
-    delivered: `跑腿者已送达${task.to}`,
+    accepted: runner?.id === meId ? '你接下了任务，可以和发布者沟通了' : `${runner?.name ?? '跑腿同学'}接下了任务，可以开始沟通了`,
+    started: `${who}已出发，正在前往${task.from}`,
+    picked: `${who}已取到${NOUN[task.type]}`,
+    delivered: `${who}已送达${task.to}`,
     completed: '任务已完成，感谢这次互助',
   };
   return events
@@ -71,11 +74,11 @@ export function Chat() {
   const items = useMemo<Item[]>(() => {
     if (!task) return [];
     const msgs: Item[] = (state.messages[task.id] ?? []).map((m) => ({ kind: 'msg', ...m }));
-    return [...msgs, ...systemItems(task, runner)].sort((a, b) => a.at - b.at);
-  }, [task, runner, state.messages]);
+    return [...msgs, ...systemItems(task, runner, me.id)].sort((a, b) => a.at - b.at);
+  }, [task, runner, state.messages, me.id]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' });
+    scrollWithinPage(bottomRef.current, 'end', false);
   }, [items.length, typing]);
 
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
@@ -180,7 +183,7 @@ export function Chat() {
       <div className="chat-body">
         <div className="chat-safety">
           <ShieldCheck size={13} />
-          双方均为澄湖大学认证学生 · 平台不会要求你转账或提供验证码
+          双方均为同校认证学生 · 平台不会索要转账或验证码
         </div>
 
         {items.map((it, i) => {

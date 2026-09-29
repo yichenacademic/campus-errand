@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store/AppStore';
 import { displayStatus, nextStepFor, roleOf } from '../store/logic';
 import type { Task } from '../types';
-import { dayClock, MINUTE, remaining, timeAgo } from '../utils/time';
+import { dayClock, MINUTE, timeAgo } from '../utils/time';
 import { Avatar, CreditLine, Route, StatusTag, TaskTags, TypeChip } from './ui';
 
 /** 任务广场卡片；near 为「我现在的位置」，用于显示距离；preview 用于发布前的确认预览，不可点击 */
@@ -58,7 +58,7 @@ export function TaskCard({ task, preview = false, near }: { task: Task; preview?
           <Avatar user={publisher} size={24} />
           <CreditLine user={publisher} />
         </span>
-        {isMine ? <span className="mine-flag">我发布的</span> : <span className="next-step">{remaining(task.deadline, now)}</span>}
+        {isMine && <span className="mine-flag">我发布的</span>}
       </div>
     </Tag>
   );

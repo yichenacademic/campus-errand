@@ -7,6 +7,8 @@ import { reduce, type Action } from './logic';
 const STORAGE_KEY = 'shunlu-campus-errand';
 /** 广场上的演示任务时间都是相对「现在」生成的，闲置太久会整体过期，此时只刷新广场，不动用户自己的数据 */
 const PLAZA_MAX_AGE = 6 * HOUR;
+/** 广场上他人可接的任务少于这个数时，加载时自动补一批 */
+const MIN_PLAZA_TASKS = 6;
 
 /** 与我有关的任务（我发布的、我接的）永远保留；其余广场任务换成新生成的一批 */
 function refreshPlaza(state: AppState): AppState {
@@ -79,7 +81,12 @@ function parse(raw: string | null): AppState | null {
 function loadState(): AppState {
   try {
     const saved = parse(localStorage.getItem(STORAGE_KEY));
-    if (saved) return Date.now() - saved.savedAt > PLAZA_MAX_AGE ? refreshPlaza(saved) : saved;
+    if (saved) {
+      // 演示任务会陆续到期：闲置太久，或广场上可接的任务所剩无几时，换一批新的
+      const now = Date.now();
+      const openOthers = saved.tasks.filter((t) => t.status === 'open' && t.deadline > now && t.publisherId !== saved.meId).length;
+      return now - saved.savedAt > PLAZA_MAX_AGE || openOthers < MIN_PLAZA_TASKS ? refreshPlaza(saved) : saved;
+    }
   } catch {
     // 存储不可用时使用初始数据
   }
