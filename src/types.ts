@@ -35,7 +35,7 @@ export interface Rating {
   at: number;
 }
 
-export type TimelineKind = 'published' | 'accepted' | 'started' | 'picked' | 'delivered' | 'completed' | 'cancelled' | 'rated';
+export type TimelineKind = 'published' | 'accepted' | 'started' | 'picked' | 'delivered' | 'completed' | 'cancelled' | 'rated' | 'abandoned';
 
 export interface TimelineEvent {
   kind: TimelineKind;
@@ -67,10 +67,40 @@ export interface Task {
   ratingByRunner: Rating | null;
 }
 
+export type CreditKind =
+  | 'verify'
+  | 'run'
+  | 'ontime'
+  | 'good'
+  | 'rate'
+  | 'confirm'
+  | 'nocancel'
+  | 'abandon'
+  | 'late'
+  | 'lateRepeat'
+  | 'complaint'
+  | 'fake';
+
 export interface CreditLog {
   id: string;
   delta: number;
   reason: string;
+  at: number;
+  kind?: CreditKind;
+  /** 关联的任务，用于「本次互助信用变化」小结 */
+  taskId?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  from: string;
+  text: string;
+  at: number;
+}
+
+export interface Report {
+  reason: string;
+  detail: string;
   at: number;
 }
 
@@ -89,4 +119,8 @@ export interface AppState {
   tasks: Task[];
   creditLogs: CreditLog[];
   pastReviews: PastReview[];
+  /** 任务内聊天记录（系统消息由任务时间线派生，不单独存储） */
+  messages: Record<string, ChatMessage[]>;
+  /** 当前用户对任务的举报 */
+  reports: Record<string, Report>;
 }

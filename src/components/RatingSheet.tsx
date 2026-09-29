@@ -1,15 +1,10 @@
 import { Star } from 'lucide-react';
 import { useState } from 'react';
+import { RATING_TAGS } from '../data/credit';
 import type { User } from '../types';
 import { Avatar, Sheet } from './ui';
 
 const LABELS = ['', '很不满意', '不太满意', '一般', '满意', '非常满意'];
-
-/** 评价跑腿同学 / 评价发布者 的标签不同 */
-const TAGS = {
-  runner: ['准时送达', '物品完好', '沟通顺畅', '态度友好', '超出预期'],
-  publisher: ['描述清晰', '确认及时', '沟通顺畅', '态度友好', '报酬爽快'],
-};
 
 interface Props {
   target: User;
@@ -54,7 +49,7 @@ export function RatingSheet({ target, targetRole, taskTitle, onClose, onSubmit }
       <div className="star-label">{LABELS[score]}</div>
 
       <div className="tag-picker">
-        {TAGS[targetRole].map((t) => (
+        {RATING_TAGS.map((t) => (
           <button key={t} type="button" className={`option${tags.includes(t) ? ' active' : ''}`} onClick={() => toggle(t)}>
             {t}
           </button>
@@ -69,7 +64,7 @@ export function RatingSheet({ target, targetRole, taskTitle, onClose, onSubmit }
         onChange={(e) => setComment(e.target.value)}
       />
       <div className="field-foot">
-        <span>评价会展示在对方的个人主页</span>
+        <span>评价会计入对方的校园信用</span>
         <span className="num">{comment.length}/100</span>
       </div>
 

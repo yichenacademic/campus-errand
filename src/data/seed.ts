@@ -1,7 +1,7 @@
-import type { AppState, CreditLog, PastReview, Rating, Task, TaskType, TimelineEvent, User } from '../types';
+import type { AppState, ChatMessage, CreditLog, PastReview, Rating, Task, TaskType, TimelineEvent, User } from '../types';
 import { DAY, HOUR, MINUTE, roundUpTo10 } from '../utils/time';
 
-export const STATE_VERSION = 4;
+export const STATE_VERSION = 5;
 export const ME_ID = 'u_me';
 
 const u = (
@@ -32,7 +32,7 @@ const u = (
 });
 
 const USERS: User[] = [
-  u(ME_ID, '陈', '#19A071', '计算机学院', '研一', 92, 23, 11, 98, 96),
+  u(ME_ID, '陈', '#19A071', '计算机学院', '研一', 92, 36, 12, 98, 97),
   u('u_lin', '林', '#E0803A', '材料学院', '研二', 96, 41, 18, 99, 98),
   u('u_zhou', '周', '#3F7FD9', '经济管理学院', '大三', 88, 12, 20, 95, 92),
   u('u_wang', '王', '#7C5CD6', '土木工程学院', '大二', 94, 30, 9, 98, 97),
@@ -198,7 +198,7 @@ function myTasks(now: number): Task[] {
       id: 'm1', type: 'express', title: '帮取顺丰快递', publisherId: ME_ID, runnerId: 'u_liu', status: 'picked',
       from: '菜鸟驿站', to: '研究生宿舍 3 号楼', reward: 6, etaMinutes: 12,
       description: '一个文件袋，很轻。放 3 号楼门口快递架就好。',
-      privateNote: '取件码 3-1-2208，手机尾号 4417', tags: ['小件'],
+      privateNote: '取件码 3821，手机尾号 4417', tags: ['小件'],
       createdAt: m1Created, deadline: roundUpTo10(m1Created + 60 * MINUTE),
       timeline: [
         ev('published', m1Created, '陈同学发布了任务'),
@@ -260,8 +260,8 @@ function myTasks(now: number): Task[] {
         ev('completed', m5Created + 18 * MINUTE, '你确认收到，任务已完成，报酬 ¥3 已结算'),
         ev('rated', m5Created + 19 * MINUTE, '你评价了何同学'),
       ],
-      ratingByPublisher: rating(5, ['准时送达', '态度友好'], '超快，粥还是热的！', m5Created + 19 * MINUTE),
-      ratingByRunner: rating(5, ['描述清晰', '确认及时'], '', m5Created + 25 * MINUTE),
+      ratingByPublisher: rating(5, ['很准时', '态度友好'], '超快，粥还是热的！', m5Created + 19 * MINUTE),
+      ratingByRunner: rating(5, ['回复很快', '沟通顺畅'], '', m5Created + 25 * MINUTE),
     },
     {
       ...base,
@@ -278,7 +278,7 @@ function myTasks(now: number): Task[] {
         ev('delivered', m6Created + 38 * MINUTE, '你已送达'),
         ev('completed', m6Created + 45 * MINUTE, '任务已完成，报酬 ¥8 已结算'),
       ],
-      ratingByPublisher: rating(5, ['准时送达', '物品完好'], '书一本没少，还帮我放进了收纳箱，感谢！', m6Created + 46 * MINUTE),
+      ratingByPublisher: rating(5, ['很准时', '很靠谱'], '书一本没少，还帮我放进了收纳箱，感谢！', m6Created + 46 * MINUTE),
     },
     {
       ...base,
@@ -312,11 +312,11 @@ function pastReviews(now: number): PastReview[] {
   return [
     {
       id: 'r1', fromUserId: 'u_lin', taskTitle: '帮取菜鸟驿站快递',
-      rating: rating(5, ['准时送达', '沟通顺畅'], '比约定时间还早到了十分钟，很靠谱。', now - 3 * DAY),
+      rating: rating(5, ['很准时', '沟通顺畅'], '比约定时间还早到了十分钟，很靠谱。', now - 3 * DAY),
     },
     {
       id: 'r2', fromUserId: 'u_yang', taskTitle: '一食堂带份牛肉面',
-      rating: rating(5, ['态度友好', '物品完好'], '汤一点没洒，还提醒我拿筷子～', now - 6 * DAY),
+      rating: rating(5, ['态度友好', '很靠谱'], '汤一点没洒，还提醒我拿筷子～', now - 6 * DAY),
     },
     {
       id: 'r3', fromUserId: 'u_zheng', taskTitle: '帮忙打印实验报告',
@@ -326,12 +326,64 @@ function pastReviews(now: number): PastReview[] {
 }
 
 function creditLogs(now: number): CreditLog[] {
+  const m6Done = now - DAY - 5 * HOUR + 45 * MINUTE;
   return [
-    { id: 'c1', delta: 1, reason: '完成跑腿「帮取学院发的专业教材」', at: now - DAY - 5 * HOUR + 45 * MINUTE },
-    { id: 'c2', delta: 1, reason: '收到五星好评', at: now - DAY - 5 * HOUR + 46 * MINUTE },
-    { id: 'c3', delta: -2, reason: '跑腿超时送达（超出约定 8 分钟）', at: now - 9 * DAY },
-    { id: 'c4', delta: 5, reason: '完成学生身份认证', at: now - 40 * DAY },
+    { id: 'c1', delta: 1, reason: '获得好评（吴同学 5 星）', at: m6Done + MINUTE, kind: 'good', taskId: 'm6' },
+    { id: 'c2', delta: 1, reason: '准时完成「帮取学院发的专业教材」', at: m6Done, kind: 'ontime', taskId: 'm6' },
+    { id: 'c3', delta: 1, reason: '完成跑腿「帮取学院发的专业教材」', at: m6Done, kind: 'run', taskId: 'm6' },
+    { id: 'c4', delta: 2, reason: '连续 30 天无取消记录', at: now - 3 * DAY, kind: 'nocancel' },
+    { id: 'c5', delta: -2, reason: '跑腿超时送达（超出约定 8 分钟）', at: now - 9 * DAY, kind: 'late' },
+    { id: 'c6', delta: 5, reason: '完成学生身份认证', at: now - 40 * DAY, kind: 'verify' },
   ];
+}
+
+/** 预置聊天记录，时间与各任务时间线对齐；系统消息由时间线派生 */
+function seedMessages(now: number): Record<string, ChatMessage[]> {
+  let n = 0;
+  const msg = (from: string, text: string, at: number): ChatMessage => ({ id: `s${n++}`, from, text, at });
+  const m1 = now - 25 * MINUTE;
+  const m2 = now - 70 * MINUTE;
+  const m4 = now - 22 * MINUTE;
+  const m5 = now - DAY - 3 * HOUR;
+  const m6 = now - DAY - 5 * HOUR;
+  const m7 = now - 16 * MINUTE;
+  const M = MINUTE;
+  return {
+    m1: [
+      msg('u_liu', '你好，我接单啦，大概 10 分钟到菜鸟驿站～', m1 + 7.5 * M),
+      msg(ME_ID, '你好，取件码是 3821，谢谢！', m1 + 8 * M),
+      msg('u_liu', '收到，我现在过去～', m1 + 8.5 * M),
+      msg('u_liu', '已经取到了，预计 5 分钟到', m1 + 18.5 * M),
+      msg(ME_ID, '好的，放 3 号楼门口快递架就行，辛苦啦', m1 + 19 * M),
+    ],
+    m2: [
+      msg('u_ma', '接单啦，文件是在自助机上取吗？', m2 + 9.5 * M),
+      msg(ME_ID, '对的，取件码 5520，三篇分开订一下哈', m2 + 10 * M),
+      msg('u_ma', '收到～', m2 + 10.5 * M),
+      msg('u_ma', '已经放在实验楼 406 门口了，麻烦确认一下～', now - 5.5 * M),
+    ],
+    m4: [
+      msg('u_zhao', '谢谢同学！U 盘在一楼服务台，报「赵」就行，下节课要用～', m4 + 6.5 * M),
+      msg(ME_ID, '收到，我现在过去～', m4 + 7 * M),
+    ],
+    m5: [
+      msg('u_he', '我接啦，粥我会拿稳一点的', m5 + 3.5 * M),
+      msg(ME_ID, '哈哈好的，谢谢～', m5 + 4 * M),
+      msg('u_he', '我到了，放在门口了', m5 + 15.5 * M),
+      msg(ME_ID, '收到，谢谢', m5 + 16 * M),
+    ],
+    m6: [
+      msg(ME_ID, '你好，我接单啦，大概半小时送到', m6 + 12.5 * M),
+      msg('u_wu', '谢谢！学号写在私密信息里了～', m6 + 13 * M),
+      msg(ME_ID, '我到了，放在 402 门口收纳箱里了', m6 + 38.5 * M),
+      msg('u_wu', '收到，谢谢', m6 + 40 * M),
+    ],
+    m7: [
+      msg('u_yang', '你好，取件码是 6-3-0917，谢谢！', m7 + 5.5 * M),
+      msg(ME_ID, '收到，我现在过去～', m7 + 6 * M),
+      msg('u_yang', '放实验楼一楼前台就好，我下楼拿', m7 + 8.5 * M),
+    ],
+  };
 }
 
 export function createSeedState(now = Date.now()): AppState {
@@ -343,6 +395,8 @@ export function createSeedState(now = Date.now()): AppState {
     tasks: [...myTasks(now), ...PLAZA.map((s) => buildTask(s, now))],
     creditLogs: creditLogs(now),
     pastReviews: pastReviews(now),
+    messages: seedMessages(now),
+    reports: {},
   };
 }
 

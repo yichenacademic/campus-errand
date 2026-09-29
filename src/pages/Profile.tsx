@@ -1,41 +1,19 @@
-import { Award, BadgeCheck, ChevronRight, Flame, Lock, RotateCcw, ShieldCheck, Sparkles, ThumbsUp, TrendingUp } from 'lucide-react';
+import { Award, BadgeCheck, ChevronRight, CircleCheck, CircleMinus, Flame, Lock, RotateCcw, ShieldCheck, Sparkles, ThumbsUp, TrendingUp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Page } from '../components/Layout';
 import { Avatar, ConfirmDialog, Stars, type ConfirmOptions } from '../components/ui';
+import { CREDIT_GAINS, CREDIT_LEVELS, CREDIT_LOSSES, creditLevel } from '../data/credit';
 import { useStore } from '../store/AppStore';
 import { nextStepFor } from '../store/logic';
-import type { Rating, User } from '../types';
-import { dayClock } from '../utils/time';
-
-const LEVELS = [
-  { min: 0, label: '待提升' },
-  { min: 70, label: '一般' },
-  { min: 80, label: '良好' },
-  { min: 90, label: '优秀' },
-  { min: 95, label: '极好' },
-];
-
-function levelOf(score: number) {
-  let idx = 0;
-  LEVELS.forEach((l, i) => score >= l.min && (idx = i));
-  return idx;
-}
+import type { CreditKind, Rating, User } from '../types';
+import { DAY, dayClock } from '../utils/time';
 
 const PERKS = [
-  { min: 80, icon: ThumbsUp, title: '接单权限', desc: '可接所有普通任务' },
+  { min: 70, icon: ThumbsUp, title: '接单权限', desc: '可接普通跑腿任务' },
   { min: 90, icon: Flame, title: '大件 / 高奖励', desc: '可接 ¥10 以上任务' },
   { min: 90, icon: TrendingUp, title: '优先展示', desc: '发布的任务排序靠前' },
-  { min: 95, icon: Award, title: '靠谱同学标识', desc: '主页展示专属勋章' },
-];
-
-const RULES: [string, number][] = [
-  ['按时完成一次跑腿', 1],
-  ['收到五星好评', 1],
-  ['完成学生身份认证', 5],
-  ['跑腿超时送达', -2],
-  ['接单后无故放弃', -5],
-  ['被投诉并核实', -10],
+  { min: 95, icon: Award, title: '校园之星勋章', desc: '主页展示专属勋章' },
 ];
 
 function Gauge({ score }: { score: number }) {
@@ -73,7 +51,28 @@ export function Profile() {
   const [confirm, setConfirm] = useState<ConfirmOptions | null>(null);
   const [showAllLogs, setShowAllLogs] = useState(false);
 
-  const level = levelOf(me.credit);
+  const level = creditLevel(me.credit);
+
+  // 信用分构成：加分项展示当前进度，扣分项展示近 30 天次数
+  const logsOf = (...kinds: CreditKind[]) => state.creditLogs.filter((l) => l.kind && kinds.includes(l.kind));
+  const recent = (...kinds: CreditKind[]) => logsOf(...kinds).filter((l) => now - l.at < 30 * DAY).length;
+  const lastAbandon = logsOf('abandon')[0]?.at;
+  const since = lastAbandon ?? Math.min(...state.creditLogs.map((l) => l.at), now);
+  const noCancelDays = Math.floor((now - since) / DAY);
+  const gainStatus: Record<string, { text: string; ok: boolean }> = {
+    verify: { text: me.verified ? '已认证' : '未认证', ok: me.verified },
+    run: { text: `已完成 ${me.runCount} 次`, ok: true },
+    ontime: { text: `准时率 ${me.onTimeRate}%`, ok: true },
+    good: { text: `好评率 ${me.goodRate}%`, ok: true },
+    confirm: { text: `已获得 ${logsOf('confirm', 'rate').length} 次`, ok: true },
+    nocancel: { text: `已连续 ${noCancelDays} 天`, ok: noCancelDays >= 30 },
+  };
+  const lossCount: Record<string, number> = {
+    abandon: recent('abandon'),
+    late: recent('late'),
+    complaint: recent('complaint'),
+    fake: recent('fake'),
+  };
 
   // 收到的评价：本次会话中产生的 + 历史评价
   const reviews = useMemo(() => {
@@ -121,25 +120,27 @@ export function Profile() {
           <div className="cc-top">
             <Gauge score={me.credit} />
             <div>
+              <small className="cc-kicker">信用等级</small>
               <div className="cc-level">
                 <ShieldCheck size={18} />
-                信用{LEVELS[level].label}
+                {level.label}
               </div>
               <p className="cc-desc">
-                按时送达、认真评价都会让信用分上涨。
-                {me.credit < 95 ? `再涨 ${95 - me.credit} 分可解锁「靠谱同学」标识。` : '你已是校园里最靠谱的一批同学。'}
+                {level.desc}。
+                {level.index < CREDIT_LEVELS.length - 1 &&
+                  `再涨 ${CREDIT_LEVELS[level.index + 1].min - me.credit} 分升级为「${CREDIT_LEVELS[level.index + 1].label}」。`}
               </p>
             </div>
           </div>
           <div className="level-bar">
             <div className="level-track">
-              {LEVELS.map((l, i) => (
-                <span key={l.label} className={i <= level ? 'on' : ''} style={{ flex: 1 }} />
+              {CREDIT_LEVELS.map((l, i) => (
+                <span key={l.label} className={i <= level.index ? 'on' : ''} style={{ flex: 1 }} />
               ))}
             </div>
             <div className="level-labels">
-              {LEVELS.map((l, i) => (
-                <span key={l.label} className={i === level ? 'on' : ''} style={{ flex: 1 }}>
+              {CREDIT_LEVELS.map((l, i) => (
+                <span key={l.label} className={i === level.index ? 'on' : ''} style={{ flex: 1 }}>
                   {l.label}
                 </span>
               ))}
@@ -151,12 +152,11 @@ export function Profile() {
       <div className="page-pad">
         <section className="card stat-grid">
           <div>
-            <b className="num">{me.runCount}</b>
-            <span>完成跑腿</span>
-          </div>
-          <div>
-            <b className="num">{me.publishCount}</b>
-            <span>发布求助</span>
+            <b className="num">
+              {me.runCount}
+              <small>次</small>
+            </b>
+            <span>已完成互助</span>
           </div>
           <div>
             <b className="num">
@@ -172,6 +172,13 @@ export function Profile() {
             </b>
             <span>好评率</span>
           </div>
+          <div>
+            <b className="num">
+              {me.publishCount}
+              <small>次</small>
+            </b>
+            <span>发布求助</span>
+          </div>
         </section>
 
         {pending > 0 && (
@@ -184,6 +191,52 @@ export function Profile() {
             <ChevronRight size={18} />
           </button>
         )}
+
+        <section className="card section">
+          <div className="section-title">
+            校园信用怎么来
+            <small>满分 100</small>
+          </div>
+          <div className="rule-group-title plus">加分来源</div>
+          <ul className="credit-rules">
+            {CREDIT_GAINS.map((r) => (
+              <li key={r.kind}>
+                <div className="cr-main">
+                  <strong>
+                    {r.title}
+                    <b className="num plus">{r.points}</b>
+                  </strong>
+                  <span>{r.desc}</span>
+                </div>
+                <span className={`cr-status${gainStatus[r.kind].ok ? ' ok' : ''}`}>
+                  {gainStatus[r.kind].ok && <CircleCheck size={13} />}
+                  {gainStatus[r.kind].text}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div className="rule-group-title minus">扣分行为</div>
+          <ul className="credit-rules">
+            {CREDIT_LOSSES.map((r) => {
+              const n = lossCount[r.kind] ?? 0;
+              return (
+                <li key={r.kind}>
+                  <div className="cr-main">
+                    <strong>
+                      {r.title}
+                      <b className="num minus">{r.points}</b>
+                    </strong>
+                    <span>{r.desc}</span>
+                  </div>
+                  <span className={`cr-status${n === 0 ? ' ok' : ' bad'}`}>
+                    {n === 0 ? <CircleCheck size={13} /> : <CircleMinus size={13} />}
+                    近 30 天 {n} 次
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
 
         <section className="card section">
           <div className="section-title">
@@ -222,6 +275,7 @@ export function Profile() {
               ))}
             </div>
           )}
+          {reviews.length === 0 && <p className="soft-empty">还没有收到评价，完成一次互助试试吧</p>}
           {reviews.slice(0, 3).map((r) => (
             <div key={r.id} className="review">
               <div className="review-head">
@@ -255,18 +309,6 @@ export function Profile() {
                   <div className="l-time num">{dayClock(l.at, now, false)}</div>
                 </div>
                 <span className={`l-delta num ${l.delta > 0 ? 'plus' : 'minus'}`}>{l.delta > 0 ? `+${l.delta}` : l.delta}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="card section">
-          <div className="section-title">信用分规则</div>
-          <ul className="rules">
-            {RULES.map(([k, v]) => (
-              <li key={k}>
-                <span>{k}</span>
-                <b className={`num ${v > 0 ? 'plus' : 'minus'}`}>{v > 0 ? `+${v}` : v}</b>
               </li>
             ))}
           </ul>

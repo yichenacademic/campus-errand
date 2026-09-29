@@ -19,10 +19,10 @@ const TABS: { key: Tab; label: string }[] = [
 ];
 
 const EMPTY: Record<Tab, { title: string; desc: string; cta: string; to: string }> = {
-  active: { title: '没有进行中的任务', desc: '接下或发布的任务开始后会出现在这里', cta: '去任务广场', to: '/' },
+  active: { title: '暂无进行中的任务', desc: '接下或发布的任务被接单后，会出现在这里', cta: '去任务广场看看', to: '/' },
   published: { title: '还没有发布过任务', desc: '快递、带饭、打印……需要帮忙时，发个任务试试', cta: '发布任务', to: '/publish' },
-  running: { title: '还没有接过任务', desc: '去广场看看有没有顺路的，帮同学一把', cta: '去任务广场', to: '/' },
-  completed: { title: '还没有已完成的任务', desc: '完成的任务和评价会记录在这里', cta: '去任务广场', to: '/' },
+  running: { title: '还没有接过任务', desc: '去广场看看有没有顺路的，帮同学一把', cta: '去任务广场看看', to: '/' },
+  completed: { title: '还没有已完成的任务', desc: '完成的互助和评价会记录在这里，也会计入校园信用', cta: '去任务广场看看', to: '/' },
 };
 
 export function MyTasks() {

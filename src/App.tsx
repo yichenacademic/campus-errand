@@ -1,5 +1,6 @@
 import { Link, HashRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from './components/ui';
+import { Chat } from './pages/Chat';
 import { Home } from './pages/Home';
 import { MyTasks } from './pages/MyTasks';
 import { Profile } from './pages/Profile';
@@ -19,11 +20,11 @@ export function Logo({ size = 48 }: { size?: number }) {
 }
 
 const GUIDE = [
-  { to: '/', title: '在广场接一单', desc: '选一个任务 → 接下这个任务' },
+  { to: '/', title: '看看身边的顺路任务', desc: '切换位置 → 顺路帮一下 / 急单 / 下课顺路' },
+  { to: '/chat/m7', title: '任务内沟通', desc: '预置聊天、快捷回复、系统进度消息' },
   { to: '/task/m4', title: '跑腿推进状态', desc: '开始任务 → 已取到 → 已送达 → 完成' },
-  { to: '/publish', title: '分三步发布求助', desc: '选择类型 → 填写信息 → 确认发布' },
-  { to: '/task/m2', title: '确认收到并评价', desc: '我发布的「打印论文」→ 确认收到' },
-  { to: '/me', title: '查看校园信用', desc: '信用分、评价与信用记录' },
+  { to: '/task/m2', title: '确认收到并互评', desc: '1–5 星 + 快捷标签，查看信用变化' },
+  { to: '/me', title: '查看校园信用', desc: '信用等级、加分来源与扣分行为' },
 ];
 
 function Aside() {
@@ -74,6 +75,7 @@ export function App() {
               <Route path="/" element={<Home />} />
               <Route path="/publish" element={<Publish />} />
               <Route path="/task/:id" element={<TaskDetail />} />
+              <Route path="/chat/:id" element={<Chat />} />
               <Route path="/my-tasks" element={<MyTasks />} />
               <Route path="/me" element={<Profile />} />
               <Route path="*" element={<Navigate to="/" replace />} />

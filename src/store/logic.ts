@@ -1,5 +1,6 @@
 import { SIMULATED_RUNNERS } from '../data/seed';
-import type { AppState, Rating, Task, TaskStatus, TaskType, TimelineEvent } from '../types';
+import type { AppState, ChatMessage, CreditKind, Rating, Task, TaskStatus, TaskType, TimelineEvent } from '../types';
+import { DAY } from '../utils/time';
 
 /* ---------------- 派生状态 ---------------- */
 
@@ -92,6 +93,10 @@ export type Action =
   | { type: 'confirm'; taskId: string }
   | { type: 'cancel'; taskId: string }
   | { type: 'rate'; taskId: string; rating: Omit<Rating, 'at'> }
+  | { type: 'abandon'; taskId: string }
+  | { type: 'sendMessage'; taskId: string; id: string; text: string }
+  | { type: 'receiveMessage'; taskId: string; id: string; text: string }
+  | { type: 'report'; taskId: string; reason: string; detail: string }
   | { type: 'simAccept'; taskId: string }
   | { type: 'simAdvance'; taskId: string }
   | { type: 'simRate'; taskId: string };
@@ -111,14 +116,28 @@ function transition(state: AppState, taskId: string, status: TaskStatus, event: 
   return updateTask(state, taskId, (t) => ({ ...t, ...extra, status, timeline: [...t.timeline, event] }));
 }
 
-function addCredit(state: AppState, delta: number, reason: string, now: number): AppState {
+function addCredit(state: AppState, delta: number, reason: string, now: number, kind?: CreditKind, taskId?: string): AppState {
   const me = state.users[state.meId];
   return {
     ...state,
     users: { ...state.users, [me.id]: { ...me, credit: clampCredit(me.credit + delta) } },
-    creditLogs: [{ id: logId(), delta, reason, at: now }, ...state.creditLogs],
+    creditLogs: [{ id: logId(), delta, reason, at: now, kind, taskId }, ...state.creditLogs],
   };
 }
+
+/** 本次任务给我带来的信用变化，用于评价后的小结 */
+export function taskCreditLogs(state: AppState, taskId: string) {
+  // creditLogs 按新到旧存储，反转即为发生顺序（同一时刻的多条也保持写入顺序）
+  return state.creditLogs.filter((l) => l.taskId === taskId).reverse();
+}
+
+function addMessage(state: AppState, taskId: string, msg: ChatMessage): AppState {
+  const list = state.messages[taskId] ?? [];
+  return { ...state, messages: { ...state.messages, [taskId]: [...list, msg] } };
+}
+
+let msgSeq = 0;
+export const newMessageId = () => `msg_${Date.now().toString(36)}_${(msgSeq++).toString(36)}`;
 
 function bumpUser(state: AppState, userId: string, field: 'runCount' | 'publishCount'): AppState {
   const user = state.users[userId];
@@ -171,7 +190,9 @@ export function reduce(state: AppState, action: Action, now = Date.now()): Resul
       if (role === 'runner') return { ok: false, error: '你已经接下这个任务了' };
       if (task.status !== 'open') return { ok: false, error: '该任务已被其他同学接单' };
       if (expired) return { ok: false, error: '任务已过截止时间，无法接单' };
-      const next = transition(state, task.id, 'accepted', { kind: 'accepted', at: now, text: '你接下了任务' }, { runnerId: me.id });
+      let next = transition(state, task.id, 'accepted', { kind: 'accepted', at: now, text: '你接下了任务' }, { runnerId: me.id });
+      // 演示：发布者收到接单通知后打个招呼
+      next = addMessage(next, task.id, { id: newMessageId(), from: publisher.id, text: '谢谢同学接单！有问题随时在这里找我～', at: now + 1000 });
       return { ok: true, state: next, message: '接单成功，已加入「我的任务 → 我接的」' };
     }
 
@@ -189,10 +210,17 @@ export function reduce(state: AppState, action: Action, now = Date.now()): Resul
       if (!step.ok) return step;
       const onTime = deliveredOnTime(task, now);
       let next = bumpUser(step.state, me.id, 'runCount');
-      next = onTime
-        ? addCredit(next, 1, `按时完成跑腿「${task.title}」`, now)
-        : addCredit(next, -2, `跑腿超时送达「${task.title}」`, now);
-      return { ok: true, state: next, message: onTime ? '任务已完成，信用分 +1' : '任务已完成，超时送达信用分 -2' };
+      next = addCredit(next, 1, `完成跑腿「${task.title}」`, now, 'run', task.id);
+      if (onTime) {
+        next = addCredit(next, 1, `准时完成「${task.title}」`, now, 'ontime', task.id);
+        return { ok: true, state: next, message: '任务已完成，校园信用 +2' };
+      }
+      next = addCredit(next, -2, `跑腿超时送达「${task.title}」`, now, 'late', task.id);
+      // 30 天内第 3 次超时，额外扣分
+      const recentLate = next.creditLogs.filter((l) => l.kind === 'late' && now - l.at < 30 * DAY).length;
+      const punished = next.creditLogs.some((l) => l.kind === 'lateRepeat' && now - l.at < 30 * DAY);
+      if (recentLate >= 3 && !punished) next = addCredit(next, -5, '30 天内多次超时', now, 'lateRepeat', task.id);
+      return { ok: true, state: next, message: '任务已完成，超时送达校园信用 -2' };
     }
 
     case 'confirm': {
@@ -204,7 +232,8 @@ export function reduce(state: AppState, action: Action, now = Date.now()): Resul
         text: `你确认收到，任务已完成，报酬 ¥${task.reward} 已结算`,
       });
       if (task.runnerId) next = bumpUser(next, task.runnerId, 'runCount');
-      return { ok: true, state: next, message: '任务已完成，给跑腿同学一个评价吧' };
+      next = addCredit(next, 1, `及时确认收货「${task.title}」`, now, 'confirm', task.id);
+      return { ok: true, state: next, message: '任务已完成，校园信用 +1，给跑腿同学一个评价吧' };
     }
 
     case 'cancel': {
@@ -220,12 +249,45 @@ export function reduce(state: AppState, action: Action, now = Date.now()): Resul
       const field = role === 'publisher' ? 'ratingByPublisher' : 'ratingByRunner';
       if (task[field]) return { ok: false, error: '你已经评价过了' };
       const target = role === 'publisher' ? runner : publisher;
-      const next = updateTask(state, task.id, (t) => ({
+      let next = updateTask(state, task.id, (t) => ({
         ...t,
         [field]: { ...action.rating, at: now },
         timeline: [...t.timeline, { kind: 'rated', at: now, text: `你评价了${target?.name ?? '对方'}` }],
       }));
-      return { ok: true, state: next, message: '评价成功，感谢你让校园更有温度' };
+      next = addCredit(next, 1, `完成互评「${task.title}」`, now, 'rate', task.id);
+      const total = taskCreditLogs(next, task.id).reduce((sum, l) => sum + l.delta, 0);
+      return { ok: true, state: next, message: `评价成功，本次互助校园信用 ${total >= 0 ? '+' : ''}${total}` };
+    }
+
+    case 'abandon': {
+      if (role !== 'runner') return { ok: false, error: '只有接单的同学可以放弃任务' };
+      if (task.status !== 'accepted' && task.status !== 'started') return { ok: false, error: '已取到物品后不能放弃，请与发布者沟通' };
+      let next = transition(state, task.id, 'open', { kind: 'abandoned', at: now, text: '接单同学放弃了任务，任务重新回到广场' }, { runnerId: null });
+      // 聊天记录只属于上一对双方，不留给下一位接单者
+      const { [task.id]: _dropped, ...rest } = next.messages;
+      next = { ...next, messages: rest };
+      next = addCredit(next, -5, `接单后取消「${task.title}」`, now, 'abandon', task.id);
+      return { ok: true, state: next, message: '已放弃任务，校园信用 -5' };
+    }
+
+    case 'sendMessage':
+    case 'receiveMessage': {
+      if (role === 'visitor' || !task.runnerId) return { ok: false, error: '接单后才能和对方沟通' };
+      const text = action.text.trim();
+      if (!text) return { ok: false, error: '消息不能为空' };
+      if (text.length > 200) return { ok: false, error: '消息最多 200 字' };
+      const counterpart = role === 'publisher' ? task.runnerId : task.publisherId;
+      const from = action.type === 'sendMessage' ? me.id : counterpart;
+      const next = addMessage(state, task.id, { id: action.id, from, text, at: now });
+      return { ok: true, state: next, message: action.type === 'sendMessage' ? '消息发送成功' : undefined };
+    }
+
+    case 'report': {
+      if (role === 'publisher') return { ok: false, error: '不能举报自己发布的任务' };
+      if (state.reports[task.id]) return { ok: false, error: '你已经举报过这个任务，平台正在核实' };
+      if (!action.reason) return { ok: false, error: '请选择举报原因' };
+      const next = { ...state, reports: { ...state.reports, [task.id]: { reason: action.reason, detail: action.detail.trim(), at: now } } };
+      return { ok: true, state: next, message: '举报已提交，平台将在 24 小时内核实处理' };
     }
 
     /* ---- 演示：模拟另一方的操作 ---- */
@@ -235,7 +297,8 @@ export function reduce(state: AppState, action: Action, now = Date.now()): Resul
       if (expired) return { ok: false, error: '任务已过期' };
       const runnerId = SIMULATED_RUNNERS[Math.floor(Math.random() * SIMULATED_RUNNERS.length)];
       const name = state.users[runnerId].name;
-      const next = transition(state, task.id, 'accepted', { kind: 'accepted', at: now, text: `${name}接下了任务` }, { runnerId });
+      let next = transition(state, task.id, 'accepted', { kind: 'accepted', at: now, text: `${name}接下了任务` }, { runnerId });
+      next = addMessage(next, task.id, { id: newMessageId(), from: runnerId, text: '你好，我接单啦，现在过去～', at: now + 1000 });
       return { ok: true, state: next, message: `${name}接下了你的任务` };
     }
 
@@ -256,15 +319,15 @@ export function reduce(state: AppState, action: Action, now = Date.now()): Resul
       if (role !== 'runner' || task.status !== 'completed' || task.ratingByPublisher) return { ok: false, error: '当前状态无法模拟评价' };
       const onTime = deliveredOnTime(task, now);
       const rating: Rating = onTime
-        ? { score: 5, tags: ['准时送达', '沟通顺畅'], comment: '很靠谱，谢谢同学！', at: now }
-        : { score: 4, tags: ['物品完好'], comment: '稍微晚了一点，不过还是谢谢～', at: now };
+        ? { score: 5, tags: ['很准时', '很靠谱'], comment: '很靠谱，谢谢同学！', at: now }
+        : { score: 4, tags: ['沟通顺畅'], comment: '稍微晚了一点，不过提前说了，谢谢～', at: now };
       let next = updateTask(state, task.id, (t) => ({
         ...t,
         ratingByPublisher: rating,
         timeline: [...t.timeline, { kind: 'rated', at: now, text: `${publisher.name}评价了你` }],
       }));
-      if (rating.score === 5) next = addCredit(next, 1, '收到五星好评', now);
-      return { ok: true, state: next, message: rating.score === 5 ? `${publisher.name}给了你五星好评，信用分 +1` : `${publisher.name}评价了你` };
+      next = addCredit(next, 1, `获得好评（${publisher.name} ${rating.score} 星）`, now, 'good', task.id);
+      return { ok: true, state: next, message: `${publisher.name}给了你 ${rating.score} 星好评，校园信用 +1` };
     }
   }
 }

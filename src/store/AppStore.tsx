@@ -14,21 +14,42 @@ function refreshPlaza(state: AppState): AppState {
   const mine = state.tasks.filter((t) => t.publisherId === state.meId || t.runnerId === state.meId);
   const keptIds = new Set(mine.map((t) => t.id));
   const plaza = fresh.tasks.filter((t) => !keptIds.has(t.id) && t.publisherId !== fresh.meId && t.runnerId !== fresh.meId);
-  return { ...state, tasks: [...mine, ...plaza], savedAt: Date.now() };
+  const keep = <T,>(rec: Record<string, T>) => Object.fromEntries(Object.entries(rec).filter(([id]) => keptIds.has(id)));
+  return { ...state, tasks: [...mine, ...plaza], messages: keep(state.messages), reports: keep(state.reports), savedAt: Date.now() };
 }
 
-/** 旧版本数据迁移：v3 的「代取外卖」并入「带饭 / 代买」，状态集合是新版本的子集，可直接沿用 */
+/**
+ * 旧版本数据迁移：保留用户的任务数据。
+ * - v3 的「代取外卖」并入「带饭 / 代买」
+ * - v5 起新增聊天、举报与新版信用体系：个人资料、信用记录换成新版初始数据，
+ *   预置聊天只补给状态与初始数据一致的任务，避免聊天内容与进度对不上
+ */
 function migrate(raw: AppState): AppState | null {
   if (!raw || !Array.isArray(raw.tasks) || !raw.users || !raw.meId) return null;
   if (raw.version === STATE_VERSION) return raw;
-  if (raw.version === 3) {
-    return {
-      ...raw,
-      version: STATE_VERSION,
-      tasks: raw.tasks.map((t) => ((t.type as string) === 'takeout' ? { ...t, type: 'meal' } : t)),
-    };
-  }
-  return null;
+  if (raw.version !== 3 && raw.version !== 4) return null;
+  const fresh = createSeedState();
+  const tasks = raw.tasks.map((t) => ((t.type as string) === 'takeout' ? { ...t, type: 'meal' as const } : t));
+  // 预置聊天按旧任务的发布时间平移，保证与旧时间线的先后顺序一致
+  const messages = Object.fromEntries(
+    Object.entries(fresh.messages).flatMap(([id, list]) => {
+      const old = tasks.find((t) => t.id === id);
+      const seeded = fresh.tasks.find((t) => t.id === id);
+      if (!old || !seeded || old.status !== seeded.status) return [];
+      const shift = old.createdAt - seeded.createdAt;
+      return [[id, list.map((m) => ({ ...m, at: m.at + shift }))]];
+    }),
+  );
+  return {
+    ...raw,
+    version: STATE_VERSION,
+    tasks,
+    users: fresh.users,
+    creditLogs: fresh.creditLogs,
+    pastReviews: fresh.pastReviews,
+    messages,
+    reports: {},
+  };
 }
 
 function parse(raw: string | null): AppState | null {

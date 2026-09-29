@@ -1,30 +1,47 @@
-import { MapPin, Plus, Search, SearchX, X } from 'lucide-react';
-import { useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Backpack, Check, Compass, MapPin, Navigation, Search, SearchX, X, Zap } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Page } from '../components/Layout';
 import { TaskCard } from '../components/TaskCard';
-import { Avatar, Empty } from '../components/ui';
+import { Avatar, Empty, Sheet } from '../components/ui';
+import { distanceMeters, findLocation, MY_SPOTS } from '../data/locations';
 import { TASK_TYPES } from '../data/taskTypes';
 import { useStore } from '../store/AppStore';
 import { displayStatus } from '../store/logic';
-import type { TaskType } from '../types';
-import { greeting } from '../utils/time';
+import type { Task, TaskType } from '../types';
+import { greeting, MINUTE } from '../utils/time';
 import { useSessionState } from '../utils/useSessionState';
 
-type Sort = 'latest' | 'reward' | 'deadline';
+type Sort = 'latest' | 'reward' | 'deadline' | 'distance';
+type Scene = 'all' | 'along' | 'urgent' | 'afterClass';
 
 const SORTS: { key: Sort; label: string }[] = [
   { key: 'latest', label: '最新' },
+  { key: 'distance', label: '最近' },
   { key: 'deadline', label: '快截止' },
   { key: 'reward', label: '奖励高' },
 ];
 
+/** 取件点离我 400 米以内，算「顺路」 */
+const ALONG_METERS = 400;
+
+/** 校园场景筛选：不做真实定位，基于 Mock 的「我现在在哪」和地点坐标计算 */
+function matchScene(t: Task, scene: Scene, spot: string, now: number) {
+  if (scene === 'along') return distanceMeters(spot, t.from) <= ALONG_METERS;
+  if (scene === 'urgent') return t.tags.includes('急') || t.deadline - now <= 30 * MINUTE;
+  if (scene === 'afterClass') return findLocation(t.to)?.area === '生活区' && findLocation(t.from)?.area !== '生活区';
+  return true;
+}
+
 export function Home() {
-  const { state, me, now, refresh } = useStore();
-  const navigate = useNavigate();
+  const { state, me, now, refresh, toast } = useStore();
   const [category, setCategory] = useSessionState<TaskType | 'all'>('home.category', 'all');
   const [sort, setSort] = useSessionState<Sort>('home.sort', 'latest');
   const [keyword, setKeyword] = useSessionState('home.keyword', '');
+  const [scene, setScene] = useSessionState<Scene>('home.scene', 'all');
+  const [spot, setSpot] = useSessionState('home.spot', '教学楼 A 区');
+  const [picking, setPicking] = useState(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
   // 广场只展示仍可接单的任务（已接单、已过期的不再打扰大家）
   const openTasks = useMemo(() => state.tasks.filter((t) => displayStatus(t, now) === 'open'), [state.tasks, now]);
@@ -39,6 +56,7 @@ export function Home() {
     const kw = keyword.trim().toLowerCase();
     const filtered = openTasks.filter((t) => {
       if (category !== 'all' && t.type !== category) return false;
+      if (!matchScene(t, scene, spot, now)) return false;
       if (!kw) return true;
       return [t.title, t.from, t.to, t.description].some((s) => s.toLowerCase().includes(kw));
     });
@@ -46,12 +64,34 @@ export function Home() {
     if (sort === 'latest') sorted.sort((a, b) => b.createdAt - a.createdAt);
     if (sort === 'deadline') sorted.sort((a, b) => a.deadline - b.deadline);
     if (sort === 'reward') sorted.sort((a, b) => b.reward - a.reward || a.deadline - b.deadline);
+    if (sort === 'distance') sorted.sort((a, b) => distanceMeters(spot, a.from) - distanceMeters(spot, b.from) || a.deadline - b.deadline);
     return sorted;
-  }, [openTasks, category, keyword, sort]);
+  }, [openTasks, category, keyword, sort, scene, spot, now]);
 
-  const helpers = new Set(state.tasks.filter((t) => t.runnerId && t.status !== 'cancelled').map((t) => t.runnerId)).size;
   const othersOpen = openTasks.filter((t) => t.publisherId !== me.id);
   const totalReward = othersOpen.reduce((s, t) => s + t.reward, 0);
+  const sceneCount = (sc: Scene, at = spot) => othersOpen.filter((t) => matchScene(t, sc, at, now)).length;
+  const spotLoc = findLocation(spot);
+  const whereText = spotLoc?.area === '校门' || !spotLoc ? spot : `${spotLoc.area}`;
+
+  const scenes = [
+    { key: 'along' as const, label: '顺路帮一下', icon: Compass, count: sceneCount('along'), active: scene === 'along' },
+    { key: 'nearest' as const, label: '离你最近', icon: Navigation, count: null, active: sort === 'distance' },
+    { key: 'urgent' as const, label: '急单', icon: Zap, count: sceneCount('urgent'), active: scene === 'urgent' },
+    { key: 'afterClass' as const, label: '下课顺路', icon: Backpack, count: sceneCount('afterClass'), active: scene === 'afterClass' },
+  ];
+
+  const toggleScene = (key: (typeof scenes)[number]['key']) => {
+    if (key === 'nearest') return setSort(sort === 'distance' ? 'latest' : 'distance');
+    setScene(scene === key ? 'all' : key);
+  };
+
+  const showAlong = () => {
+    setScene('along');
+    setCategory('all');
+    setKeyword('');
+    listRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
     <Page tabbar>
@@ -78,25 +118,25 @@ export function Home() {
             <path d="M4 60c30 0 34-40 66-40s36 30 66 30" stroke="#fff" strokeWidth="3" strokeDasharray="2 8" strokeLinecap="round" />
             <circle cx="136" cy="50" r="5" fill="#fff" />
           </svg>
-          <div className="hero-kicker">
-            <i className="live-dot" />
-            互助广场 · 实时
-          </div>
+          <button className="hero-kicker loc-switch" onClick={() => setPicking(true)}>
+            <MapPin size={13} />
+            你目前在{whereText}附近 · {spot}
+            <span className="switch">切换</span>
+          </button>
           <h2>
-            此刻有<b className="num">{othersOpen.length}</b>位同学需要帮忙
+            发现<b className="num">{sceneCount('along')}</b>个顺路任务
           </h2>
           <div className="hero-row">
             <div className="hero-stats">
               <div>
-                <b className="num">¥{totalReward}</b>待领取奖励
+                <b className="num">{othersOpen.length}</b>位同学需要帮忙
               </div>
               <div>
-                <b className="num">{helpers}</b>位同学在帮忙
+                <b className="num">¥{totalReward}</b>待领取奖励
               </div>
             </div>
-            <button className="btn" onClick={() => navigate('/publish')}>
-              <Plus size={16} strokeWidth={2.6} />
-              我要求助
+            <button className="btn" onClick={showAlong}>
+              看看顺路的
             </button>
           </div>
         </section>
@@ -115,9 +155,22 @@ export function Home() {
             </button>
           )}
         </label>
+
+        <div className="scene-row" role="group" aria-label="校园场景">
+          {scenes.map((sc) => {
+            const Icon = sc.icon;
+            return (
+              <button key={sc.key} className={`scene-chip scene-${sc.key}${sc.active ? ' active' : ''}`} aria-pressed={sc.active} onClick={() => toggleScene(sc.key)}>
+                <Icon size={15} />
+                {sc.label}
+                {sc.count !== null && <span className="num">{sc.count}</span>}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="filter-bar">
+      <div className="filter-bar" ref={listRef}>
         <div className="chips" role="tablist" aria-label="任务类型">
           <button role="tab" aria-selected={category === 'all'} className={`chip${category === 'all' ? ' active' : ''}`} onClick={() => setCategory('all')}>
             全部 <span className="count num">{counts.all ?? 0}</span>
@@ -157,7 +210,7 @@ export function Home() {
           <>
             <div className="task-list">
               {list.map((t) => (
-                <TaskCard key={t.id} task={t} />
+                <TaskCard key={t.id} task={t} near={spot} />
               ))}
             </div>
             <div className="list-end">— 看看有没有顺路的，帮一把吧 —</div>
@@ -176,14 +229,15 @@ export function Home() {
         ) : (
           <Empty
             icon={<SearchX size={28} />}
-            title={keyword ? `没有找到「${keyword}」相关的任务` : '这个分类暂时没有任务'}
-            desc="换个分类看看，或者发布你自己的需求"
+            title={keyword ? `没有找到「${keyword}」相关的任务` : scene === 'along' ? `${spot}附近暂时没有顺路任务` : '这里暂时没有任务'}
+            desc={scene === 'along' ? '换个位置看看，或者去看看全部任务' : '换个分类看看，或者发布你自己的需求'}
             action={
               <button
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
                   setKeyword('');
                   setCategory('all');
+                  setScene('all');
                 }}
               >
                 查看全部任务
@@ -192,6 +246,34 @@ export function Home() {
           />
         )}
       </div>
+
+      {picking && (
+        <Sheet title="你现在在哪？" onClose={() => setPicking(false)}>
+          <p className="sheet-desc">演示用，不获取真实定位。选择后会按这里计算距离和顺路任务。</p>
+          <div className="spot-list">
+            {MY_SPOTS.map((name) => (
+              <button
+                key={name}
+                className={`spot${name === spot ? ' active' : ''}`}
+                onClick={() => {
+                  setSpot(name);
+                  setPicking(false);
+                  toast(`已切换到「${name}」附近，发现 ${sceneCount('along', name)} 个顺路任务`, 'info');
+                }}
+              >
+                <MapPin size={16} />
+                <span>
+                  <strong>{name}</strong>
+                  <small>
+                    {findLocation(name)?.area} · 附近 {sceneCount('along', name)} 个顺路任务
+                  </small>
+                </span>
+                {name === spot && <Check size={18} />}
+              </button>
+            ))}
+          </div>
+        </Sheet>
+      )}
     </Page>
   );
 }

@@ -37,3 +37,23 @@ export function estimateMinutes(from: string, to: string): number {
   const dist = Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   return Math.max(5, Math.round(dist * 1.5 + 5));
 }
+
+export function findLocation(name: string) {
+  return LOCATIONS.find((l) => l.name === name);
+}
+
+/** 两地之间的大致步行距离（米），用于「距你 300m」「离你最近」 */
+export function distanceMeters(from: string, to: string): number {
+  const a = findLocation(from);
+  const b = findLocation(to);
+  if (!a || !b) return 999;
+  return (Math.abs(a.x - b.x) + Math.abs(a.y - b.y)) * 100;
+}
+
+export function formatDistance(m: number) {
+  if (m <= 0) return '就在附近';
+  return m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`;
+}
+
+/** 首页可切换的「我现在在哪」，演示用，不做真实定位 */
+export const MY_SPOTS = ['教学楼 A 区', '图书馆', '一食堂', '研究生宿舍 3 号楼', '体育馆', '东门'];

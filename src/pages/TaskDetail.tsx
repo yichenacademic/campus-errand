@@ -1,4 +1,4 @@
-import { Check, FileQuestion, FlaskConical, Lock, LockOpen, MessageCircle, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, Check, ChevronRight, FileQuestion, Flag, FlaskConical, Lock, LockOpen, MessageCircle, ShieldCheck } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { NavBar, Page } from '../components/Layout';
@@ -9,16 +9,18 @@ import {
   CreditLine,
   creditTone,
   Empty,
+  Sheet,
   Stars,
   StatusTag,
   TaskTags,
   TypeChip,
   type ConfirmOptions,
 } from '../components/ui';
+import { creditLevel, REPORT_REASONS } from '../data/credit';
 import { LOCATIONS } from '../data/locations';
 import { useStore } from '../store/AppStore';
-import { displayStatus, roleOf, RUNNER_NEXT, STATUS_META, type DisplayStatus, type Role } from '../store/logic';
-import type { Rating, Task, User } from '../types';
+import { displayStatus, roleOf, RUNNER_NEXT, STATUS_META, taskCreditLogs, type DisplayStatus, type Role } from '../store/logic';
+import type { CreditLog, Rating, Task, User } from '../types';
 import { clock, dayClock, MINUTE, remaining, timeAgo } from '../utils/time';
 
 const STEPS = ['发布', '接单', '出发', '取到', '送达', '完成'];
@@ -74,6 +76,8 @@ export function TaskDetail() {
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState<ConfirmOptions | null>(null);
   const [rating, setRating] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [result, setResult] = useState<CreditLog[] | null>(null);
 
   // 与首页、我的任务读取同一份 state.tasks，任何页面的操作都会同步到这里
   const task = state.tasks.find((t) => t.id === id);
@@ -170,11 +174,32 @@ export function TaskDetail() {
       onConfirm: () => run({ type: 'cancel', taskId: task.id }),
     });
 
-  const contact = () => toast('演示环境暂不支持聊天，已为双方生成隐私号 170****3321', 'info');
+  const contact = () => navigate(`/chat/${task.id}`);
 
   const submitRating = (r: Omit<Rating, 'at'>) => {
-    if (run({ type: 'rate', taskId: task.id, rating: r })) setRating(false);
+    if (!run({ type: 'rate', taskId: task.id, rating: r })) return;
+    setRating(false);
+    setResult([]); // 下一次渲染时从最新 state 读取本次任务的信用变化
   };
+
+  const abandon = () =>
+    ask({
+      title: '确定放弃这个任务？',
+      body: (
+        <>
+          接单后取消会影响发布者的安排，<b style={{ color: 'var(--red)' }}>校园信用 -5</b>，并中断「长期无取消记录」。任务会重新回到广场。
+        </>
+      ),
+      confirmText: '仍要放弃',
+      cancelText: '继续跑腿',
+      danger: true,
+      onConfirm: () => run({ type: 'abandon', taskId: task.id }),
+    });
+
+  const report = state.reports[task.id];
+  const messages = state.messages[task.id] ?? [];
+  const lastMessage = messages[messages.length - 1];
+  const bothVerified = publisher.verified && (!runner || runner.verified);
 
   /* ---------- 底部操作栏：按「我的角色 × 任务状态」决定 ---------- */
   let footer: ReactNode = null;
@@ -270,7 +295,22 @@ export function TaskDetail() {
   const tone = STATUS_META[status].tone;
 
   return (
-    <Page header={<NavBar title="任务详情" />} footer={footer}>
+    <Page
+      header={
+        <NavBar
+          title="任务详情"
+          right={
+            role !== 'publisher' && (
+              <button className={`report-btn${report ? ' done' : ''}`} onClick={() => (report ? toast('你已举报该任务，平台正在核实', 'info') : setReporting(true))}>
+                <Flag size={15} />
+                {report ? '已举报' : '举报'}
+              </button>
+            )
+          }
+        />
+      }
+      footer={footer}
+    >
       <section className={`status-hero tone-${tone}-hero`}>
         <div className="st-row">
           <h2>{hero.title}</h2>
@@ -373,6 +413,10 @@ export function TaskDetail() {
 
         <section className="card section">
           <div className="section-title">任务双方</div>
+          <div className="trust-line">
+            <BadgeCheck size={14} />
+            {runner ? (bothVerified ? '双方均为澄湖大学认证学生' : '发布者已通过澄湖大学学生认证') : publisher.verified ? '发布者已通过澄湖大学学生认证' : '发布者尚未完成学生认证，请谨慎接单'}
+          </div>
           <PersonRow user={publisher} label="发布者" isMe={publisher.id === me.id} />
           {runner ? (
             <PersonRow user={runner} label="接单者" isMe={runner.id === me.id} />
@@ -384,6 +428,37 @@ export function TaskDetail() {
             )
           )}
         </section>
+
+        {role !== 'visitor' && runner && (
+          <button className="card section chat-entry" onClick={contact}>
+            <span className="ce-icon">
+              <MessageCircle size={20} />
+            </span>
+            <span className="ce-main">
+              <strong>任务沟通</strong>
+              <span>
+                {lastMessage
+                  ? `${lastMessage.from === me.id ? '我' : state.users[lastMessage.from]?.name}：${lastMessage.text}`
+                  : `和${(role === 'publisher' ? runner : publisher).name}聊聊交接细节`}
+              </span>
+            </span>
+            <ChevronRight size={18} />
+          </button>
+        )}
+
+        {role === 'runner' && (task.status === 'accepted' || task.status === 'started') && (
+          <p className="abandon-row">
+            临时有事去不了？
+            <button onClick={abandon}>放弃任务（校园信用 -5）</button>
+          </p>
+        )}
+
+        {report && (
+          <div className="report-notice">
+            <Flag size={14} />
+            你已以「{report.reason}」举报该任务，平台将在 24 小时内核实处理
+          </div>
+        )}
 
         {status === 'completed' && (task.ratingByPublisher || task.ratingByRunner) && (
           <section className="card section">
@@ -425,6 +500,15 @@ export function TaskDetail() {
       </div>
 
       {confirm && <ConfirmDialog options={confirm} onClose={() => setConfirm(null)} />}
+      {reporting && (
+        <ReportSheet
+          onClose={() => setReporting(false)}
+          onSubmit={(reason, detail) => {
+            if (run({ type: 'report', taskId: task.id, reason, detail })) setReporting(false);
+          }}
+        />
+      )}
+      {result && <CreditResult logs={taskCreditLogs(state, task.id)} credit={me.credit} onClose={() => setResult(null)} />}
       {rating && rateTarget && role !== 'visitor' && (
         <RatingSheet
           target={rateTarget}
@@ -485,6 +569,68 @@ function ReviewItem({ from, to, rating, meId }: { from: User; to: User; rating: 
         </div>
       )}
       {rating.comment && <p>{rating.comment}</p>}
+    </div>
+  );
+}
+
+function ReportSheet({ onClose, onSubmit }: { onClose: () => void; onSubmit: (reason: string, detail: string) => void }) {
+  const [reason, setReason] = useState('');
+  const [detail, setDetail] = useState('');
+  return (
+    <Sheet title="举报任务" onClose={onClose}>
+      <p className="sheet-desc">举报内容仅平台可见。核实后，发布者将被扣除校园信用并限制发布。</p>
+      <div className="option-row" role="radiogroup" aria-label="举报原因">
+        {REPORT_REASONS.map((r) => (
+          <button key={r} type="button" role="radio" aria-checked={reason === r} className={`option${reason === r ? ' active' : ''}`} onClick={() => setReason(r)}>
+            {r}
+          </button>
+        ))}
+      </div>
+      <textarea
+        className="textarea"
+        style={{ marginTop: 14 }}
+        maxLength={100}
+        placeholder="补充说明（选填），如任务中的可疑内容"
+        value={detail}
+        onChange={(e) => setDetail(e.target.value)}
+      />
+      <button className="btn btn-primary" style={{ width: '100%', marginTop: 16 }} disabled={!reason} onClick={() => onSubmit(reason, detail)}>
+        {reason ? '提交举报' : '请选择举报原因'}
+      </button>
+    </Sheet>
+  );
+}
+
+/** 评价后的信用小结：列出本次任务带来的每一项信用变化 */
+function CreditResult({ logs, credit, onClose }: { logs: CreditLog[]; credit: number; onClose: () => void }) {
+  const total = logs.reduce((s, l) => s + l.delta, 0);
+  return (
+    <div className="overlay center" onClick={onClose}>
+      <div className="dialog result-dialog" role="dialog" aria-modal="true" aria-label="评价成功" onClick={(e) => e.stopPropagation()}>
+        <div className="result-check">
+          <Check size={28} strokeWidth={3} />
+        </div>
+        <h3>评价成功</h3>
+        <div className={`result-total num${total < 0 ? ' minus' : ''}`}>
+          校园信用 {total >= 0 ? '+' : ''}
+          {total}
+        </div>
+        <ul className="result-list">
+          {logs.map((l) => (
+            <li key={l.id}>
+              <span>{l.reason.replace(/「.*」/, '')}</span>
+              <b className={`num ${l.delta > 0 ? 'plus' : 'minus'}`}>{l.delta > 0 ? `+${l.delta}` : l.delta}</b>
+            </li>
+          ))}
+        </ul>
+        <p className="result-now">
+          当前校园信用 <b className="num">{credit}</b> · {creditLevel(credit).label}
+          {credit >= 100 && '（已满分）'}
+        </p>
+        <button className="btn btn-primary" style={{ width: '100%' }} onClick={onClose}>
+          好的
+        </button>
+      </div>
     </div>
   );
 }

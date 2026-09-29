@@ -23,6 +23,7 @@ const MIN_LEAD = 15; // 至少给跑腿同学留出的分钟数
 const REWARD_MIN = 1;
 const REWARD_MAX = 50;
 const STEP_NAMES = ['选择类型', '填写信息', '确认发布'];
+const SAFE_TIP = '请勿发布涉及违规物品、现金代转、高风险校外跑腿等任务。';
 
 type Step = 1 | 2 | 3;
 type Field = 'title' | 'from' | 'to' | 'deadline' | 'reward';
@@ -252,10 +253,13 @@ export function Publish() {
                 </button>
               ))}
             </div>
-            <p className="rule-note">
-              <ShieldCheck size={14} />
-              请勿发布代课、代考、代签到等违反校规的任务。
-            </p>
+            <div className="safety-card">
+              <ShieldCheck size={16} />
+              <div>
+                <strong>同校互助公约</strong>
+                {SAFE_TIP}也不要发布代课、代考、代签到等违反校规的需求。
+              </div>
+            </div>
           </>
         )}
 
@@ -451,6 +455,10 @@ export function Publish() {
                 <input className="input" value={privateNote} maxLength={60} placeholder={meta.privatePlaceholder} onChange={(e) => setPrivateNote(e.target.value)} />
               </div>
             </section>
+            <p className="rule-note">
+              <ShieldCheck size={14} />
+              {SAFE_TIP}
+            </p>
           </>
         )}
 
@@ -505,10 +513,13 @@ export function Publish() {
                 </li>
               </ul>
             </section>
-            <p className="rule-note">
-              <ShieldCheck size={14} />
-              无人接单时可随时取消，不影响信用分。演示环境中的奖励不会产生真实交易。
-            </p>
+            <div className="safety-card">
+              <ShieldCheck size={16} />
+              <div>
+                <strong>发布前请确认</strong>
+                {SAFE_TIP}发布虚假任务将扣除 15 分校园信用。无人接单时可随时取消，不影响信用分。
+              </div>
+            </div>
           </>
         )}
       </div>
